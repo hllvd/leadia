@@ -26,11 +26,9 @@ Além de organizar dados, o sistema também analisa a qualidade da comunicação
 Exemplo:
 
 **Fala do Corretor**: "_Vou deixar você analisar as fotos com calma e, quando quiser visitar, é só me chamar._"
-**Insight da IA**: Você entregou o controle da jornada ao cliente e perdeu a autoridade. O corretor de elite conduz o processo: 
+**Insight da IA**: Você entregou o controle da jornada ao cliente e perdeu a autoridade. O corretor de elite conduz o processo dessa forma: 
 
 "_Vou te dar 48h para avaliar com sua esposa. Na quarta-feira, às 10h, te ligo para entendermos se esse é o imóvel que atende sua expectativa ou se ajustamos a busca._" 
-
-
 
 ---
 
@@ -82,7 +80,7 @@ Nesse modo, ele conduz o cliente por uma sequência de perguntas e tenta identif
 
 A IA identifica e responde **10 perguntas fundamentais sobre cada conversa**.
 
-Essas informações estruturam automaticamente os dados no CRM. Tanto no modo _Listening_ quanto no modo _Agente_, o robô analisará a conversa e tentará extrair essas respostas de forma contínua.
+Essas informações ajudarão a estruturar os dados no CRM. Tanto no modo _Listening_ quanto no modo _Agente_, o robô analisará a conversa e tentará extrair essas respostas de forma contínua.
 
 ## Perguntas
 
@@ -317,11 +315,10 @@ Exemplo de mensagem:
 
 ---
 
-# 🏠 Funil Imobiliário Ideal (7 Etapas)
+# Funil Imobiliário Ideal (7 Etapas)
 
----
 
-## 1 Novo Lead
+## 1. Novo Lead
 O lead acabou de chegar ao seu sistema.
 
 * **Origem:**
@@ -341,7 +338,7 @@ O lead acabou de chegar ao seu sistema.
 
 ---
 
-## 2 Lead Engajado
+## 2. Lead Engajado
 O lead respondeu e iniciou a conversa de fato.
 
 * **Sinais:**
@@ -357,7 +354,7 @@ O lead respondeu e iniciou a conversa de fato.
 
 ---
 
-## 3 Lead Qualificado
+## 3. Lead Qualificado
 Agora já sabemos que o lead é real e tem perfil.
 
 * **Informações conhecidas:**
@@ -374,7 +371,7 @@ Agora já sabemos que o lead é real e tem perfil.
 
 ---
 
-## 4 Imóvel de Interesse
+## 4. Imóvel de Interesse
 O lead demonstrou interesse real em um ou mais imóveis específicos.
 
 * **Sinais:**
@@ -388,7 +385,7 @@ O lead demonstrou interesse real em um ou mais imóveis específicos.
 
 ---
 
-## 5 Visita Agendada
+## 5. Visita Agendada
 Um dos momentos mais críticos da jornada.
 
 * **Sinais:**
@@ -402,7 +399,7 @@ Um dos momentos mais críticos da jornada.
 
 ---
 
-## 6 Negociação
+## 6. Negociação
 Lead visitou o imóvel e está avaliando a compra/locação.
 
 * **Sinais:**
@@ -417,7 +414,7 @@ Lead visitou o imóvel e está avaliando a compra/locação.
 
 ---
 
-## 7 Fechamento
+## 7. Fechamento
 Venda realizada com sucesso.
 
 * **Ações:**
@@ -431,20 +428,26 @@ Venda realizada com sucesso.
 
 ---
 
-### 📍 Representação simples do funil
+### Representação simples do funil
 
 **Novo Lead**
-   ↓
+>↓
+
 **Lead Engajado**
-   ↓
+>↓
+
 **Lead Qualificado**
-   ↓
+>↓
+
 **Imóvel de Interesse**
-   ↓
+>↓
+
 **Visita Agendada**
-   ↓
+>↓
+
 **Negociação**
-   ↓
+>↓
+
 **Fechamento**
 
 ---
@@ -760,4 +763,4 @@ Principais benefícios:
 - CRM sempre atualizado
 - automação de follow-up
 - geração de vendas com leads antigos
-- inteligência comercial 
+- inteligência comercial
