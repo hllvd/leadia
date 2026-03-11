@@ -478,3 +478,42 @@ Can you send photos?
 16. Writes to DynamoDB crm_memory table
 17. persistence-worker ACKs each event
 ```
+ and
+---
+
+## 10. CRM Data Model (Relational)
+
+In future phases, administrative and relational data will be stored in **SQLite**, while the conversation memory remains in DynamoDB.
+
+### 10.1 Structured Tables Requirements
+
+#### Table: `real_state_agency`
+Stores property-specific information.
+- `id`: Primary Key (GUID)
+- `name`: Title/Name of the property
+- `address`: Full location string
+- `description`: Detailed property text
+
+#### Table: `real_state_broker`
+Manages the relationship between properties and responsible brokers.
+- `id`: Primary Key
+- `real_state_id`: Foreign Key to `real_state`
+#### Table: `broker_data`
+A flexible key-value store for broker-specific information (phones, emails, etc.)
+- `id`: Primary Key
+- `broker_id`: Foreign Key to `broker` profile
+- `broken_name`: String (the name of the broker), same as data_key but for humans
+- `data_key`: String (e.g., "phone", "email", "whatsapp", "instagram")
+- `data_value`: String (the actual contact detail or value)
+- `is_preferred`: Boolean (marks the primary/preferred entry for a specific key)
+- `description`: String (description of the data) if needed
+- `created_at`: DateTime
+- `updated_at`: DateTime
+
+### 10.2 Administrative Roles
+
+The system must support a **Super Admin** role with full **CRUD (Create, Read, Update, Delete)** capabilities over the CRM tables:
+- Ability to manually add/edit properties (`real_state`).
+- Ability to assign properties to brokers (`real_state_broker`).
+- Ability to manage arbitrary broker data (`broker_data`), allowing for multiple phones, emails, and preference settings.
+- Direct access to manage the relational state through a dedicated admin interface.

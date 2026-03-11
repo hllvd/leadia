@@ -19,6 +19,9 @@ Isso resolve um dos maiores problemas do mercado imobiliário:
 
 O robô faz tudo isso automaticamente.
 
+### Futuro: CRM Imobiliário
+Em uma fase futura, o projeto evoluirá para um **CRM completo para o setor imobiliário**, onde todas as informações administrativas, cadastros de imóveis e gestão de clientes serão armazenadas em um banco de dados **SQLite**, aproveitando a estrutura relacional para dados complexos, enquanto o DynamoDB continua cuidando da memória de alta volumetria das conversas.
+
 ### Assistente de Conversa para Corretores
 
 Além de organizar dados, o sistema também analisa a qualidade da comunicação do corretor com o cliente, oferecendo sugestões para melhorar a conversão.

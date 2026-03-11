@@ -19,6 +19,17 @@ The architecture is optimized for:
 
 ---
 
+## Estratégia de Dados Híbrida e Visão de Futuro
+
+
+## Hybrid Data Strategy and Vision for the Future
+The project was designed under a hybrid data strategy:
+
+1.  **DynamoDB (Single Table Design)**: Currently utilized for high-volume memory and event processing (messages, facts, summaries). It is horizontally scalable and ideal for the continuous data flow of conversations.
+2.  **SQLite (Future Real Estate CRM)**: In a future expansion, the system will integrate a full real estate CRM. Structured relational data (property listings, owners, contracts, and administrative management) will be stored in **SQLite**, ensuring the referential integrity required for a CRM, while DynamoDB remains the "brain" for scalable conversations.
+
+---
+
 # Core Conversation Model
 
 The system maintains the conversational state using four main components:
