@@ -12,11 +12,7 @@ public static class WebhookEndpoints
             string botNumber,
             HttpContext httpContext,
             BotService botService,
-            UserService userService,
-            MessageService messageService,
-            IUserRepository userRepository,
-            IBotStrategyFactory strategyFactory,
-            ConversationStateService conversationService) =>
+            IMessagePublisher publisher) =>
         {
             // ── 1. Read raw body for HMAC verification ───────────────────────
             httpContext.Request.EnableBuffering();
@@ -46,7 +42,7 @@ public static class WebhookEndpoints
             if (dto is null || string.IsNullOrWhiteSpace(dto.From) || string.IsNullOrWhiteSpace(dto.Message))
                 return Results.BadRequest(new { error = "Fields 'from' and 'message' are required." });
 
-            // ── 4. Identify bot ───────────────────────────────────────────────
+            // ── 4. Identify bot (Fast check) ──────────────────────────────────
             var bot = await botService.GetByNumberAsync(botNumber);
             if (bot is null || !bot.IsActive)
                 return Results.NotFound(new { error = "Bot not found or inactive." });
@@ -67,81 +63,15 @@ public static class WebhookEndpoints
                 Timestamp:      timestamp,
                 MessageHash:    messageHash);
 
-            // ── 6. Process through conversation state service ─────────────────
-            var result = await conversationService.ProcessMessageAsync(normalized);
-            if (result is null)
-                return Results.Conflict(new { error = "Duplicate message." });   // HTTP 409
+            // ── 6. Offload to NATS (Event Driven) ─────────────────────────────
+            await publisher.PublishAsync(normalized);
 
-            // ── 7. Identify or auto-create user ───────────────────────────────
-            var user = await userRepository.GetByWhatsAppNumberAsync(dto.From);
-            if (user is null)
-            {
-                try
-                {
-                    await userService.CreateAsync(new CreateUserDto(
-                        Name: dto.From,
-                        Email: $"{dto.From.TrimStart('+')}@messaging.local",
-                        Password: Guid.NewGuid().ToString(),
-                        WhatsAppNumber: dto.From,
-                        BotId: bot.Id));
-                    user = await userRepository.GetByWhatsAppNumberAsync(dto.From);
-                }
-                catch
-                {
-                    return Results.Problem("Could not register user.");
-                }
-            }
-
-            if (user is null)
-                return Results.Problem("User lookup failed.");
-
-            // ── 8. Store incoming message ─────────────────────────────────────
-            await messageService.StoreAsync(user.Id, bot.Id, "customer", normalizedText);
-
-            // ── 9. Resolve strategy and process ──────────────────────────────
-            string reply;
-            try
-            {
-                var strategy = strategyFactory.Resolve(user.BotType);
-                reply = await strategy.ProcessMessageAsync(user, normalizedText);
-            }
-            catch (NotSupportedException)
-            {
-                reply = "Bot type not supported yet.";
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Bot processing failed: {ex.Message}");
-                reply = "Sorry, an error occurred. Please try again.";
-            }
-
-            // ── 10. Store bot reply ───────────────────────────────────────────
-            await messageService.StoreAsync(user.Id, bot.Id, "bot", reply);
-
-            // ── 11. Background LLM processing ─────────────────────────────────
-            if (result.SummaryTriggered && !string.IsNullOrEmpty(result.LlmContext))
-            {
-                // In a production app, this would be a message to a queue (NATS/RabbitMQ).
-                // Here we use fire-and-forget to keep the webhook response fast.
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var llmService = httpContext.RequestServices.GetRequiredService<ILlmService>();
-                        var llmResponse = await llmService.AnalyzeAsync(result.LlmContext);
-                        if (llmResponse != null)
-                        {
-                            await conversationService.ApplyLlmResultAsync(result.UpdatedState.ConversationId, llmResponse);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[ERROR] Background LLM processing failed: {ex.Message}");
-                    }
-                });
-            }
-
-            return Results.Ok(new { reply, conversationId, llmContextBuilt = result.SummaryTriggered });
+            // ── 7. Immediate return ───────────────────────────────────────────
+            return Results.Ok(new { 
+                status = "received", 
+                conversationId, 
+                messageHash 
+            });
         });
     }
 

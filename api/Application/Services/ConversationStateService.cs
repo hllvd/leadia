@@ -30,7 +30,9 @@ public record ProcessResult(
 /// Orchestrates message processing using pure helper services.
 /// Injectable (non-static) because it depends on the repository.
 /// </summary>
-public class ConversationStateService(IConversationStateRepository repository)
+public class ConversationStateService(
+    IConversationStateRepository repository,
+    IPersistenceEventPublisher persistencePublisher)
 {
     /// <summary>
     /// Processes a normalized inbound message:
@@ -91,9 +93,13 @@ public class ConversationStateService(IConversationStateRepository repository)
         state.BufferJson  = JsonSerializer.Serialize(buffer);
         state.BufferChars = bufferChars;
 
-        // ── 5. Persist ───────────────────────────────────────────────────────
+        // ── 5. Persist internally (for worker memory/cache) ───────────────────
         await repository.UpsertAsync(state, ct);
 
+        // ── 6. Publish for async storage ─────────────────────────────────────
+        await persistencePublisher.PublishMessageAsync(msg, ct);
+
+        // Notify if LLM check is needed immediately
         return new ProcessResult(state, summaryTriggered, false, llmContext);
     }
 
@@ -122,5 +128,9 @@ public class ConversationStateService(IConversationStateRepository repository)
         var existing = await repository.GetFactsAsync(conversationId, ct);
         var merged   = FactMerger.Merge(existing, factUpdates, conversationId);
         await repository.UpsertFactsAsync(conversationId, merged, ct);
+
+        // ── 2. Publish persistence events ────────────────────────────────────
+        await persistencePublisher.PublishSummaryAsync(conversationId, llmResponse.Summary, state.LastMessageHash, ct);
+        await persistencePublisher.PublishFactsAsync(conversationId, merged, ct);
     }
 }
