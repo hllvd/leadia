@@ -6,9 +6,11 @@ namespace Infrastructure.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Bot> Bots => Set<Bot>();
-    public DbSet<Message> Messages => Set<Message>();
+    public DbSet<User>             Users             => Set<User>();
+    public DbSet<Bot>              Bots              => Set<Bot>();
+    public DbSet<Message>          Messages          => Set<Message>();
+    public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
+    public DbSet<ConversationFact>  ConversationFacts  => Set<ConversationFact>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +63,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany(b => b.Messages)
              .HasForeignKey(e => e.BotId)
              .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── ConversationState ──
+        modelBuilder.Entity<ConversationState>(b =>
+        {
+            b.HasKey(e => e.ConversationId);
+            b.Property(e => e.LastMessageTimestamp).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.Property(e => e.LastActivityTimestamp).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.Property(e => e.CreatedAt).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.HasMany(e => e.Facts)
+             .WithOne(f => f.Conversation)
+             .HasForeignKey(f => f.ConversationId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── ConversationFact ──
+        modelBuilder.Entity<ConversationFact>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => new { e.ConversationId, e.FactName }).IsUnique();
+            b.Property(e => e.UpdatedAt).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
         });
     }
 }

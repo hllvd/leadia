@@ -10,38 +10,77 @@ public static class WebhookEndpoints
     {
         app.MapPost("/api/webhook/{botNumber}", async (
             string botNumber,
-            WebhookRequestDto dto,
             HttpContext httpContext,
             BotService botService,
             UserService userService,
             MessageService messageService,
             IUserRepository userRepository,
-            IBotStrategyFactory strategyFactory) =>
+            IBotStrategyFactory strategyFactory,
+            ConversationStateService conversationService) =>
         {
-            // 1. Validate webhook secret
-            var expectedSecret = config["Webhook:Secret"];
-            if (!string.IsNullOrEmpty(expectedSecret))
+            // ── 1. Read raw body for HMAC verification ───────────────────────
+            httpContext.Request.EnableBuffering();
+            var rawBody = await ReadRawBodyAsync(httpContext.Request);
+            httpContext.Request.Body.Position = 0;
+
+            // ── 2. Validate HMAC-SHA256 signature ────────────────────────────
+            var webhookSecret = config["Webhook:Secret"] ?? string.Empty;
+            if (!string.IsNullOrEmpty(webhookSecret))
             {
-                var providedSecret = httpContext.Request.Headers["X-Webhook-Secret"].FirstOrDefault();
-                if (providedSecret != expectedSecret)
+                var signature = httpContext.Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
+                if (!WebhookSignatureValidator.Validate(rawBody, signature, webhookSecret))
                     return Results.Unauthorized();
             }
 
-            // 2. Identify bot
+            // ── 3. Parse body ─────────────────────────────────────────────────
+            WebhookRequestDto? dto;
+            try
+            {
+                dto = await httpContext.Request.ReadFromJsonAsync<WebhookRequestDto>();
+            }
+            catch
+            {
+                return Results.BadRequest(new { error = "Invalid JSON payload." });
+            }
+
+            if (dto is null || string.IsNullOrWhiteSpace(dto.From) || string.IsNullOrWhiteSpace(dto.Message))
+                return Results.BadRequest(new { error = "Fields 'from' and 'message' are required." });
+
+            // ── 4. Identify bot ───────────────────────────────────────────────
             var bot = await botService.GetByNumberAsync(botNumber);
             if (bot is null || !bot.IsActive)
                 return Results.NotFound(new { error = "Bot not found or inactive." });
 
-            // 3. Identify or create user (first contact scenario)
+            // ── 5. Normalize message ──────────────────────────────────────────
+            var normalizedText = MessageNormalizer.Normalize(dto.Message);
+            var conversationId = MessageNormalizer.BuildConversationId(botNumber, dto.From);
+            var timestamp      = DateTimeOffset.UtcNow;
+            var messageHash    = MessageNormalizer.ComputeHash(
+                                    timestamp.ToString("O"), bot.Id, dto.From, normalizedText);
+
+            var normalized = new NormalizedMessage(
+                ConversationId: conversationId,
+                BrokerId:       bot.Id,
+                CustomerId:     dto.From,
+                SenderType:     "customer",
+                Text:           normalizedText,
+                Timestamp:      timestamp,
+                MessageHash:    messageHash);
+
+            // ── 6. Process through conversation state service ─────────────────
+            var result = await conversationService.ProcessMessageAsync(normalized);
+            if (result is null)
+                return Results.Conflict(new { error = "Duplicate message." });   // HTTP 409
+
+            // ── 7. Identify or auto-create user ───────────────────────────────
             var user = await userRepository.GetByWhatsAppNumberAsync(dto.From);
             if (user is null)
             {
-                // Auto-create user on first contact with this bot number
                 try
                 {
                     await userService.CreateAsync(new CreateUserDto(
                         Name: dto.From,
-                        Email: $"{dto.From.TrimStart('+')}@whatsapp.local",
+                        Email: $"{dto.From.TrimStart('+')}@messaging.local",
                         Password: Guid.NewGuid().ToString(),
                         WhatsAppNumber: dto.From,
                         BotId: bot.Id));
@@ -56,15 +95,15 @@ public static class WebhookEndpoints
             if (user is null)
                 return Results.Problem("User lookup failed.");
 
-            // 4. Store incoming message
-            await messageService.StoreAsync(user.Id, bot.Id, "user", dto.Message);
+            // ── 8. Store incoming message ─────────────────────────────────────
+            await messageService.StoreAsync(user.Id, bot.Id, "customer", normalizedText);
 
-            // 5. Resolve strategy and process
+            // ── 9. Resolve strategy and process ──────────────────────────────
             string reply;
             try
             {
                 var strategy = strategyFactory.Resolve(user.BotType);
-                reply = await strategy.ProcessMessageAsync(user, dto.Message);
+                reply = await strategy.ProcessMessageAsync(user, normalizedText);
             }
             catch (NotSupportedException)
             {
@@ -73,14 +112,43 @@ public static class WebhookEndpoints
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] Bot processing failed: {ex.Message}");
-                reply = "Desculpe, ocorreu um erro. Tente novamente. 🙏";
+                reply = "Sorry, an error occurred. Please try again.";
             }
 
-            // 6. Store bot reply
+            // ── 10. Store bot reply ───────────────────────────────────────────
             await messageService.StoreAsync(user.Id, bot.Id, "bot", reply);
 
-            // 7. Return response (WhatsApp provider will deliver it)
-            return Results.Ok(new { reply });
+            // ── 11. Background LLM processing ─────────────────────────────────
+            if (result.SummaryTriggered && !string.IsNullOrEmpty(result.LlmContext))
+            {
+                // In a production app, this would be a message to a queue (NATS/RabbitMQ).
+                // Here we use fire-and-forget to keep the webhook response fast.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var llmService = httpContext.RequestServices.GetRequiredService<ILlmService>();
+                        var llmResponse = await llmService.AnalyzeAsync(result.LlmContext);
+                        if (llmResponse != null)
+                        {
+                            await conversationService.ApplyLlmResultAsync(result.UpdatedState.ConversationId, llmResponse);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] Background LLM processing failed: {ex.Message}");
+                    }
+                });
+            }
+
+            return Results.Ok(new { reply, conversationId, llmContextBuilt = result.SummaryTriggered });
         });
+    }
+
+    private static async Task<byte[]> ReadRawBodyAsync(HttpRequest request)
+    {
+        using var ms = new MemoryStream();
+        await request.Body.CopyToAsync(ms);
+        return ms.ToArray();
     }
 }

@@ -27,12 +27,21 @@
     "SharedFolderId": ""
   },
   "Cors": {
-    "AllowedOrigins": [ "http://localhost:3000", "https://admin.contazap.com" ]
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://admin.contazap.com"
+    ]
   },
   "Logging": {
     "LogLevel": {
       "Default": "Information",
       "Microsoft.AspNetCore": "Warning"
     }
+  },
+  "LLM": {
+    "ApiKey": "YOUR_API_KEY",
+    "Model": "mistral-large-latest",
+    "BaseUrl": "https://api.mistral.ai/v1/",
+    "TimeoutSeconds": 10
   }
 }

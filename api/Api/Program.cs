@@ -5,6 +5,7 @@ using Domain.Enums;
 using Infrastructure.BotEngine;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -32,13 +33,18 @@ builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 // ── Bot strategies (Strategy Pattern) ───────────────────────────────────────
 builder.Services.AddScoped<IBotStrategy, PersonalFinanceBotStrategy>();
 builder.Services.AddScoped<IBotStrategy, MeiBotStrategy>();
-builder.Services.AddScoped<IBotStrategy, AgroBotStrategy>();
+builder.Services.AddScoped<IBotStrategy, AiBotStrategy>();
 builder.Services.AddScoped<IBotStrategyFactory, BotStrategyFactory>();
+
+// ── LLM Service ─────────────────────────────────────────────────────────────
+builder.Services.AddHttpClient<ILlmService, LlmService>();
 
 // ── Application services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<BotService>();
 builder.Services.AddScoped<MessageService>();
+builder.Services.AddScoped<IConversationStateRepository, ConversationStateRepository>();
+builder.Services.AddScoped<ConversationStateService>();
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtKey = config["Jwt:SecretKey"]

@@ -1,0 +1,103 @@
+using Application.Services;
+
+namespace Unit;
+
+public class MessageNormalizerTests
+{
+    // ── BuildConversationId ───────────────────────────────────────────────────
+
+    [Fact]
+    public void BuildConversationId_Concatenates_BrokerAndCustomer()
+    {
+        var result = MessageNormalizer.BuildConversationId("4798913312", "47839948");
+        Assert.Equal("4798913312-47839948", result);
+    }
+
+    [Fact]
+    public void BuildConversationId_Trims_InputWhitespace()
+    {
+        var result = MessageNormalizer.BuildConversationId(" 123 ", " 456 ");
+        Assert.Equal("123-456", result);
+    }
+
+    [Theory]
+    [InlineData("", "456")]
+    [InlineData("   ", "456")]
+    [InlineData("123", "")]
+    [InlineData("123", "   ")]
+    public void BuildConversationId_Throws_OnNullOrWhitespace(string broker, string customer)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            MessageNormalizer.BuildConversationId(broker, customer));
+    }
+
+    // ── Normalize ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Normalize_TrimsLeadingAndTrailingWhitespace()
+    {
+        var result = MessageNormalizer.Normalize("  hello  ");
+        Assert.Equal("hello", result);
+    }
+
+    [Fact]
+    public void Normalize_CollapsesMultipleSpaces()
+    {
+        var result = MessageNormalizer.Normalize("hello   world");
+        Assert.Equal("hello world", result);
+    }
+
+    [Fact]
+    public void Normalize_NormalizesCRLFToLF()
+    {
+        var result = MessageNormalizer.Normalize("line1\r\nline2");
+        Assert.Equal("line1\nline2", result);
+    }
+
+    [Fact]
+    public void Normalize_NormalizesCRToLF()
+    {
+        var result = MessageNormalizer.Normalize("line1\rline2");
+        Assert.Equal("line1\nline2", result);
+    }
+
+    [Fact]
+    public void Normalize_ReturnsEmpty_ForNullOrEmpty()
+    {
+        Assert.Equal(string.Empty, MessageNormalizer.Normalize(""));
+        Assert.Equal(string.Empty, MessageNormalizer.Normalize(null!));
+    }
+
+    // ── ComputeHash ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ComputeHash_IsDeterministic()
+    {
+        var h1 = MessageNormalizer.ComputeHash("ts", "broker1", "cust1", "hello");
+        var h2 = MessageNormalizer.ComputeHash("ts", "broker1", "cust1", "hello");
+        Assert.Equal(h1, h2);
+    }
+
+    [Fact]
+    public void ComputeHash_ProducesLowercaseHex()
+    {
+        var hash = MessageNormalizer.ComputeHash("ts", "b", "c", "msg");
+        Assert.Matches(@"^[0-9a-f]{64}$", hash);
+    }
+
+    [Fact]
+    public void ComputeHash_DifferentText_ProducesDifferentHash()
+    {
+        var h1 = MessageNormalizer.ComputeHash("ts", "b", "c", "hello");
+        var h2 = MessageNormalizer.ComputeHash("ts", "b", "c", "world");
+        Assert.NotEqual(h1, h2);
+    }
+
+    [Fact]
+    public void ComputeHash_DifferentTimestamp_ProducesDifferentHash()
+    {
+        var h1 = MessageNormalizer.ComputeHash("ts1", "b", "c", "msg");
+        var h2 = MessageNormalizer.ComputeHash("ts2", "b", "c", "msg");
+        Assert.NotEqual(h1, h2);
+    }
+}
