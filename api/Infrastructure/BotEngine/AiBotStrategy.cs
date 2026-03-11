@@ -10,7 +10,9 @@ namespace Infrastructure.BotEngine;
 /// </summary>
 public class AiBotStrategy(ILlmService llmService, ConversationStateService conversationService) : IBotStrategy
 {
-    public BotType SupportedType => BotType.Agro; // Example assignment
+    private readonly ILlmService _llmService = llmService;
+    private readonly ConversationStateService _conversationService = conversationService;
+    public BotType SupportedType => BotType.GenericAi;
 
     public async Task<string> ProcessMessageAsync(User user, string message, CancellationToken ct = default)
     {

@@ -25,7 +25,7 @@ public record UserDto(
     string WhatsAppNumber,
     UserRole Role,
     BotType BotType,
-    string BotId,
+    string? BotId,
     DateTimeOffset CreatedAt);
 
 public record BotDto(

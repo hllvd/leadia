@@ -8,7 +8,7 @@ namespace Application.Services;
 /// Pure static functions for normalizing WhatsApp messages.
 /// All methods are stateless and deterministic — ideal for unit testing.
 /// </summary>
-public static class MessageNormalizer
+public static partial class MessageNormalizer
 {
     /// <summary>
     /// Builds a deterministic conversation ID from the broker and customer phone numbers.

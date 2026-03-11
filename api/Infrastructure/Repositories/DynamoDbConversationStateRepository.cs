@@ -77,7 +77,7 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
         await _db.PutItemAsync(request, ct);
     }
 
-    public async Task<IEnumerable<ConversationFact>> GetFactsAsync(string conversationId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ConversationFact>> GetFactsAsync(string conversationId, CancellationToken ct = default)
     {
         var request = new QueryRequest
         {
@@ -98,7 +98,7 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             Value = item["value"].S,
             Confidence = double.Parse(item["confidence"].N),
             UpdatedAt = DateTimeOffset.Parse(item["updated_at"].S)
-        });
+        }).ToList();
     }
 
     public async Task UpsertFactsAsync(string conversationId, IEnumerable<ConversationFact> facts, CancellationToken ct = default)

@@ -16,28 +16,35 @@ namespace MessageWorker;
 /// Background worker that consumes 'message.received' events from NATS JetStream.
 /// Orchestrates conversation logic and LLM triggers.
 /// </summary>
-public class Worker(
-    ILogger<Worker> logger,
-    INatsJSContext js,
-    IServiceScopeFactory scopeFactory) : BackgroundService
+public class Worker : BackgroundService
 {
+    private readonly ILogger<Worker> _logger;
+    private readonly INatsJSContext _js;
+    private readonly IBotStrategyFactory _strategyFactory; // Added as per instruction, but not used in the provided snippet
+    private readonly IServiceProvider _serviceProvider;
+
+    public Worker(ILogger<Worker> logger, INatsConnection connection, IBotStrategyFactory strategyFactory, IServiceProvider serviceProvider, INatsJSContext? js = null)
+    {
+        _logger = logger;
+        _js = js ?? new NatsJSContext(connection);
+        _strategyFactory = strategyFactory;
+        _serviceProvider = serviceProvider;
+    }
+
     private const string StreamName = "messages";
     private const string ConsumerName = "message-worker-group";
     private const string Subject = "message.received";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Message Worker starting...");
+        _logger.LogInformation("Message Worker starting...");
 
-        // 1. Ensure Stream and Consumer exist (Matching QUEUE.md setup)
         try
         {
-            await js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, [Subject]), stoppingToken);
-            await js.CreateOrUpdateConsumerAsync(StreamName, new ConsumerConfig(ConsumerName)
+            await _js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, [Subject]), stoppingToken);
+            await _js.CreateOrUpdateConsumerAsync(StreamName, new ConsumerConfig(ConsumerName)
             {
                 DurableName = ConsumerName,
-                DeliverPolicy = ConsumerDeliverPolicy.All,
-                AckPolicy = ConsumerAckPolicy.Explicit,
                 MaxDeliver = 5,
                 AckWait = TimeSpan.FromSeconds(30),
                 DeliverGroup = "message-workers"
@@ -45,11 +52,11 @@ public class Worker(
         }
         catch (Exception ex)
         {
-            logger.LogWarning("Stream/Consumer creation skipped or failed. NATS might need manual setup. Error: {Error}", ex.Message);
+            _logger.LogWarning("Stream/Consumer creation skipped or failed. NATS might need manual setup. Error: {Error}", ex.Message);
         }
 
         // 2. Consume messages
-        var consumer = await js.GetConsumerAsync(StreamName, ConsumerName, stoppingToken);
+        var consumer = await _js.GetConsumerAsync(StreamName, ConsumerName, stoppingToken);
 
         await foreach (var msg in consumer.ConsumeAsync<JsonElement>(cancellationToken: stoppingToken))
         {
@@ -76,10 +83,10 @@ public class Worker(
                     continue;
                 }
 
-                logger.LogInformation("Processing message {Hash} for conversation {ConvId}", normalized.MessageHash, normalized.ConversationId);
+                _logger.LogInformation("Processing message {Hash} for conversation {ConvId}", normalized.MessageHash, normalized.ConversationId);
 
                 // Use a scope for the conversation service which might have scoped deps (like the repo)
-                using var scope = scopeFactory.CreateScope();
+                using var scope = _serviceProvider.CreateScope();
                 var convService = scope.ServiceProvider.GetRequiredService<ConversationStateService>();
                 var llmService  = scope.ServiceProvider.GetRequiredService<ILlmService>();
 
@@ -87,7 +94,7 @@ public class Worker(
                 
                 if (result == null)
                 {
-                    logger.LogInformation("Message {Hash} is a duplicate. Acking.", normalized.MessageHash);
+                    _logger.LogInformation("Message {Hash} is a duplicate. Acking.", normalized.MessageHash);
                     await msg.AckAsync(cancellationToken: stoppingToken);
                     continue;
                 }
@@ -95,7 +102,7 @@ public class Worker(
                 // Handle LLM trigger
                 if (result.SummaryTriggered && !string.IsNullOrEmpty(result.LlmContext))
                 {
-                    logger.LogInformation("Buffer triggered LLM analysis for {ConvId}", normalized.ConversationId);
+                    _logger.LogInformation("Buffer triggered LLM analysis for {ConvId}", normalized.ConversationId);
                     var llmResponse = await llmService.AnalyzeAsync(result.LlmContext, stoppingToken);
                     if (llmResponse != null)
                     {
@@ -104,11 +111,11 @@ public class Worker(
                 }
 
                 await msg.AckAsync(cancellationToken: stoppingToken);
-                logger.LogInformation("Successfully processed and Acked message {Hash}", normalized.MessageHash);
+                _logger.LogInformation("Successfully processed and Acked message {Hash}", normalized.MessageHash);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to process NATS message.");
+                _logger.LogError(ex, "Failed to process NATS message.");
                 // NATS will re-deliver after AckWait (30s)
             }
         }

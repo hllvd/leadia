@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Application.Interfaces;
+using Application.DTOs;
 using Domain.Entities;
 
 namespace Application.Services;
@@ -66,10 +67,16 @@ public class ConversationStateService(
         buffer.Add(msg.Text);
 
         var bufferChars       = state.BufferChars + msg.Text.Length;
-        var secondsSinceLast  = (msg.Timestamp - state.LastMessageTimestamp).TotalSeconds;
-        var isExpired         = BufferPolicy.IsBufferExpired(state.LastActivityTimestamp);
+        var secondsSinceLast  = state.LastMessageTimestamp == DateTimeOffset.MinValue 
+                                ? 0 
+                                : (msg.Timestamp - state.LastMessageTimestamp).TotalSeconds;
+
+        var isExpired         = state.LastActivityTimestamp == DateTimeOffset.MinValue
+                                ? false
+                                : BufferPolicy.IsBufferExpired(state.LastActivityTimestamp);
+
         var shouldTrigger     = BufferPolicy.ShouldTriggerSummary(buffer.Count, bufferChars, secondsSinceLast)
-                             || isExpired;
+                             || (isExpired && buffer.Count > 0);
 
         // ── 4. Update state fields ────────────────────────────────────────────
         state.LastMessageHash       = msg.MessageHash;

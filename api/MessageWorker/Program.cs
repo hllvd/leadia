@@ -7,13 +7,25 @@ using Infrastructure.Services;
 using MessageWorker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 using NATS.Client.Core;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // ── Shared Infrastructure ───────────────────────────────────────────────────
-builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection());
-builder.Services.AddSingleton<IAmazonDynamoDB>(sp => new AmazonDynamoDBClient());
+var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
+
+var dynamoDbEndpoint = Environment.GetEnvironmentVariable("DYNAMODB_ENDPOINT");
+builder.Services.AddSingleton<IAmazonDynamoDB>(sp => 
+{
+    var config = new AmazonDynamoDBConfig();
+    if (!string.IsNullOrEmpty(dynamoDbEndpoint))
+    {
+        config.ServiceURL = dynamoDbEndpoint;
+    }
+    return new AmazonDynamoDBClient(config);
+});
 
 // ── Repositories & Publishers ────────────────────────────────────────────────
 builder.Services.AddScoped<IConversationStateRepository, DynamoDbConversationStateRepository>();
@@ -25,8 +37,6 @@ builder.Services.AddScoped<ConversationStateService>();
 builder.Services.AddHttpClient<ILlmService, LlmService>();
 
 // ── Bot Strategies ──────────────────────────────────────────────────────────
-builder.Services.AddScoped<IBotStrategy, PersonalFinanceBotStrategy>();
-builder.Services.AddScoped<IBotStrategy, MeiBotStrategy>();
 builder.Services.AddScoped<IBotStrategy, AiBotStrategy>();
 builder.Services.AddScoped<IBotStrategyFactory, BotStrategyFactory>();
 

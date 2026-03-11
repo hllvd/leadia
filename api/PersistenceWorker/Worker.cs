@@ -14,29 +14,35 @@ namespace PersistenceWorker;
 /// Background worker that consumes 'persist.*' events from NATS JetStream.
 /// Implements Single Table Design writes to DynamoDB.
 /// </summary>
-public class Worker(
-    ILogger<Worker> logger,
-    INatsJSContext js,
-    IAmazonDynamoDB db,
-    IConfiguration config) : BackgroundService
+public class Worker : BackgroundService
 {
+    private readonly ILogger<Worker> _logger;
+    private readonly INatsJSContext _js;
+    private readonly IAmazonDynamoDB _db;
+    private readonly string _tableName;
+
     private const string StreamName = "persistence_events";
     private const string ConsumerName = "persistence-worker-group";
-    private readonly string _tableName = config["DynamoDB:Table"] ?? "crm_memory";
+
+    public Worker(ILogger<Worker> logger, INatsConnection connection, IAmazonDynamoDB db, IConfiguration config, INatsJSContext? js = null)
+    {
+        _logger = logger;
+        _js = js ?? new NatsJSContext(connection);
+        _db = db;
+        _tableName = config["DynamoDB:Table"] ?? "crm_memory";
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Persistence Worker starting...");
+        _logger.LogInformation("Persistence Worker starting...");
 
         // 1. Ensure Stream and Consumer exist (Matching QUEUE.md setup)
         try
         {
-            await js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, ["persist.*"]), stoppingToken);
-            await js.CreateOrUpdateConsumerAsync(StreamName, new ConsumerConfig(ConsumerName)
+            await _js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, ["persist.*"]), stoppingToken);
+            await _js.CreateOrUpdateConsumerAsync(StreamName, new ConsumerConfig(ConsumerName)
             {
                 DurableName = ConsumerName,
-                DeliverPolicy = ConsumerDeliverPolicy.All,
-                AckPolicy = ConsumerAckPolicy.Explicit,
                 MaxDeliver = 10,
                 AckWait = TimeSpan.FromSeconds(60),
                 DeliverGroup = "persistence-workers"
@@ -44,11 +50,11 @@ public class Worker(
         }
         catch (Exception ex)
         {
-            logger.LogWarning("Stream/Consumer creation skipped or failed. NATS might need manual setup. Error: {Error}", ex.Message);
+            _logger.LogWarning("Stream/Consumer creation skipped or failed. NATS might need manual setup. Error: {Error}", ex.Message);
         }
 
         // 2. Consume messages
-        var consumer = await js.GetConsumerAsync(StreamName, ConsumerName, stoppingToken);
+        var consumer = await _js.GetConsumerAsync(StreamName, ConsumerName, stoppingToken);
 
         await foreach (var msg in consumer.ConsumeAsync<JsonElement>(cancellationToken: stoppingToken))
         {
@@ -58,7 +64,7 @@ public class Worker(
                 var type = eventData.GetProperty("type").GetString() ?? "";
                 var payload = eventData.GetProperty("payload");
 
-                logger.LogInformation("Received persistence event: {Type}", type);
+                _logger.LogInformation("Received persistence event: {Type}", type);
 
                 switch (type)
                 {
@@ -72,7 +78,7 @@ public class Worker(
                         await HandlePersistFactsAsync(payload, stoppingToken);
                         break;
                     default:
-                        logger.LogWarning("Unknown persistence event type: {Type}", type);
+                        _logger.LogWarning("Unknown persistence event type: {Type}", type);
                         break;
                 }
 
@@ -80,13 +86,13 @@ public class Worker(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to persist event to DynamoDB.");
+                _logger.LogError(ex, "Failed to persist event to DynamoDB.");
                 // NATS will re-deliver after AckWait (60s)
             }
         }
     }
 
-    private async Task HandlePersistMessageAsync(JsonElement payload, CancellationToken ct)
+    protected async Task HandlePersistMessageAsync(JsonElement payload, CancellationToken ct)
     {
         var convId = payload.GetProperty("conversation_id").GetString();
         var ts = payload.GetProperty("timestamp").GetString();
@@ -106,10 +112,10 @@ public class Worker(
             }
         };
 
-        await db.PutItemAsync(request, ct);
+        await _db.PutItemAsync(request, ct);
     }
 
-    private async Task HandlePersistSummaryAsync(JsonElement payload, CancellationToken ct)
+    protected async Task HandlePersistSummaryAsync(JsonElement payload, CancellationToken ct)
     {
         var convId = payload.GetProperty("conversation_id").GetString();
         var summary = payload.GetProperty("rolling_summary").GetString();
@@ -132,10 +138,10 @@ public class Worker(
             }
         };
 
-        await db.UpdateItemAsync(request, ct);
+        await _db.UpdateItemAsync(request, ct);
     }
 
-    private async Task HandlePersistFactsAsync(JsonElement payload, CancellationToken ct)
+    protected async Task HandlePersistFactsAsync(JsonElement payload, CancellationToken ct)
     {
         var convId = payload.GetProperty("conversation_id").GetString();
         var facts = payload.GetProperty("facts").EnumerateArray();
@@ -155,11 +161,11 @@ public class Worker(
                     { "PK", new AttributeValue { S = $"CONV#{convId}" } },
                     { "SK", new AttributeValue { S = $"FACT#{name}" } },
                     { "value", new AttributeValue { S = value } },
-                    { "confidence", new AttributeValue { N = confidence.ToString() } },
+                    { "confidence", new AttributeValue { N = confidence.ToString(System.Globalization.CultureInfo.InvariantCulture) } },
                     { "updated_at", new AttributeValue { S = updatedAt ?? "" } }
                 }
             };
-            await db.PutItemAsync(request, ct);
+            await _db.PutItemAsync(request, ct);
         }
     }
 }

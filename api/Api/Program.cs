@@ -21,13 +21,35 @@ builder.Configuration.AddJsonFile("config.json", optional: false, reloadOnChange
 var config = builder.Configuration;
 
 // ── Shared Infrastructure (External) ───────────────────────────────────────
-builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection());
-builder.Services.AddSingleton<IAmazonDynamoDB>(sp => new AmazonDynamoDBClient());
+var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
 
-// ── Database (Internal - SQLite for legacy objects) ────────────────────────
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlite(config["Database:ConnectionString"]
-        ?? "Data Source=/data/contazap.db"));
+var dynamoDbEndpoint = Environment.GetEnvironmentVariable("DYNAMODB_ENDPOINT");
+builder.Services.AddSingleton<IAmazonDynamoDB>(sp => 
+{
+    var config = new AmazonDynamoDBConfig();
+    if (!string.IsNullOrEmpty(dynamoDbEndpoint))
+    {
+        config.ServiceURL = dynamoDbEndpoint;
+    }
+    return new AmazonDynamoDBClient(config);
+});
+
+// ── Database (EF Core) ──────────────────────────────────────────────────────
+// Skip real DB if running in integration tests
+bool isTest = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("INTEGRATION_TEST"));
+
+if (!isTest)
+{
+    var connectionString = config["Database:ConnectionString"] ?? "Data Source=contazap.db";
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlite(connectionString));
+}
+else
+{
+    // In-Memory DB for tests if needed (or let factory do it)
+    // Here we let the factory do it to avoid double-processing
+}
 
 // ── Repositories & Publishers ──────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -39,9 +61,7 @@ builder.Services.AddScoped<IConversationStateRepository, DynamoDbConversationSta
 builder.Services.AddScoped<IMessagePublisher, NatsPublisher>();
 builder.Services.AddScoped<IPersistenceEventPublisher, NatsPublisher>();
 
-// ── Bot strategies (Strategy Pattern) ───────────────────────────────────────
-builder.Services.AddScoped<IBotStrategy, PersonalFinanceBotStrategy>();
-builder.Services.AddScoped<IBotStrategy, MeiBotStrategy>();
+// ── Bot Strategies ──────────────────────────────────────────────────────────
 builder.Services.AddScoped<IBotStrategy, AiBotStrategy>();
 builder.Services.AddScoped<IBotStrategyFactory, BotStrategyFactory>();
 
@@ -98,7 +118,10 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    if (db.Database.IsRelational())
+    {
+        db.Database.Migrate();
+    }
     await SeedSuperAdmin(db, config);
 }
 
@@ -126,7 +149,7 @@ static async Task SeedSuperAdmin(AppDbContext db, IConfiguration config)
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
         WhatsAppNumber = "+5500000000000",
         Role = UserRole.Admin,
-        BotType = BotType.PersonalFinance
+        BotType = BotType.GenericAi
     });
     await db.SaveChangesAsync();
     Console.WriteLine($"[SEED] Super admin created: {email}");

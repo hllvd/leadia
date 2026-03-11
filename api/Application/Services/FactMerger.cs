@@ -37,11 +37,14 @@ public static class FactMerger
                 // Only overwrite when incoming confidence is at least as high
                 if (update.Confidence >= existing_fact.Confidence)
                 {
-                    result[update.Name] = existing_fact with
+                    result[update.Name] = new ConversationFact
                     {
-                        Value      = update.Value,
-                        Confidence = update.Confidence,
-                        UpdatedAt  = now
+                        Id             = existing_fact.Id,
+                        ConversationId = existing_fact.ConversationId,
+                        FactName       = existing_fact.FactName,
+                        Value          = update.Value,
+                        Confidence     = update.Confidence,
+                        UpdatedAt      = now
                     };
                 }
                 // else keep existing unchanged

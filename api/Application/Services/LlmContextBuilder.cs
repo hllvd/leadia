@@ -30,13 +30,19 @@ public static class LlmContextBuilder
 
         sb.AppendLine();
         sb.AppendLine("FACTS");
-        foreach (var fact in facts)
-            sb.AppendLine($"{fact.FactName}: {fact.Value}");
+        if (facts != null)
+        {
+            foreach (var fact in facts)
+                sb.AppendLine($"{fact.FactName}: {fact.Value}");
+        }
 
         sb.AppendLine();
         sb.AppendLine("RECENT MESSAGES");
-        foreach (var msg in buffer)
-            sb.AppendLine(msg);
+        if (buffer != null)
+        {
+            foreach (var msg in buffer)
+                sb.AppendLine(msg);
+        }
 
         sb.AppendLine();
         sb.AppendLine("NEW MESSAGE");

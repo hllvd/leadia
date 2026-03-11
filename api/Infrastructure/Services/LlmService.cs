@@ -24,7 +24,7 @@ public class LlmService : ILlmService
         _logger     = logger;
 
         // Configure timeout from appsettings (default 10s as per spec)
-        var timeoutSeconds = _config.GetValue<int>("LLM:TimeoutSeconds", 10);
+        var timeoutSeconds = config.GetValue<int>("LLM:TimeoutSeconds", 10);
         _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
     }
 

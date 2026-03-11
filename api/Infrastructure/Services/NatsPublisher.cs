@@ -19,10 +19,10 @@ public class NatsPublisher : IMessagePublisher, IPersistenceEventPublisher, IAsy
     private readonly string _messagesStream;
     private readonly string _persistenceStream;
 
-    public NatsPublisher(INatsConnection connection, IConfiguration config)
+    public NatsPublisher(INatsConnection connection, IConfiguration config, INatsJSContext? js = null)
     {
         _connection = connection;
-        _js = _connection.CreateJetStreamContext();
+        _js = js ?? new NatsJSContext(connection);
         _messagesStream = config["NATS:StreamMessages"] ?? "messages";
         _persistenceStream = config["NATS:StreamPersistence"] ?? "persistence_events";
     }

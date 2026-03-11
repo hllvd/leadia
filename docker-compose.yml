@@ -1,28 +1,119 @@
 version: "3.9"
 
 services:
+  # ── API Gateway ────────────────────────────────────────
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
+      args:
+        - PROJECT_NAME=Api
     container_name: contazap-api
     restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - sqlite-data:/data
       - ./config.json:/app/config.json:ro
       - ./secrets/service-account.json:/app/secrets/service-account.json:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      - NATS_URL=nats://nats:4222
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+    depends_on:
+      nats:
+        condition: service_healthy
     networks:
       - contazap-net
 
+  # ── Message Worker ─────────────────────────────────────
+  message-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      args:
+        - PROJECT_NAME=MessageWorker
+    container_name: message-worker
+    restart: unless-stopped
+    environment:
+      - NATS_URL=nats://nats:4222
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - contazap-net
+
+  # ── Persistence Worker ────────────────────────────────
+  persistence-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      args:
+        - PROJECT_NAME=PersistenceWorker
+    container_name: persistence-worker
+    restart: unless-stopped
+    environment:
+      - NATS_URL=nats://nats:4222
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - contazap-net
+
+  # ── NATS JetStream ────────────────────────────────────
+  nats:
+    image: nats:2.10-alpine
+    container_name: crm-nats
+    command: ["-c", "/etc/nats/nats-server.conf"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - ./infra/nats/nats-server.conf:/etc/nats/nats-server.conf:ro
+      - nats-data:/data/jetstream
+    healthcheck:
+      test: ["CMD", "nats-server", "--healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contazap-net
+
+  # ── DynamoDB Local ────────────────────────────────────
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: dynamodb-local
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    networks:
+      - contazap-net
+
+  # ── DynamoDB Init ─────────────────────────────────────
+  dynamodb-init:
+    image: amazon/aws-cli
+    depends_on:
+      - dynamodb-local
+    volumes:
+      - ./infra/dynamodb/init-dynamo.sh:/init.sh
+    entrypoint: ["/bin/bash", "/init.sh"]
+    networks:
+      - contazap-net
+
+  # ── Redis (Cache) ─────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: crm-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+    networks:
+      - contazap-net
+
+  # ── Client ────────────────────────────────────────────
   client:
     build:
       context: ./client
@@ -38,8 +129,8 @@ services:
       - contazap-net
 
 volumes:
-  sqlite-data:
-    driver: local
+  nats-data:
+  sqlite-data: # Retained legacy volume
 
 networks:
   contazap-net:

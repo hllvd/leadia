@@ -22,8 +22,7 @@ public class NatsPublisherTests
         _jsMock = new Mock<INatsJSContext>();
         _configMock = new Mock<IConfiguration>();
 
-        _connMock.Setup(c => c.CreateJetStreamContext(null)).Returns(_jsMock.Object);
-        _publisher = new NatsPublisher(_connMock.Object, _configMock.Object);
+        _publisher = new NatsPublisher(_connMock.Object, _configMock.Object, _jsMock.Object);
     }
 
     [Fact]
@@ -39,7 +38,7 @@ public class NatsPublisherTests
         _jsMock.Verify(x => x.PublishAsync(
             It.Is<string>(s => s == "message.received"), 
             It.IsAny<string>(), 
-            null, null, default), Times.Once);
+            default, default, default), Times.Once);
     }
 
     [Fact]
@@ -52,6 +51,6 @@ public class NatsPublisherTests
         _jsMock.Verify(x => x.PublishAsync(
             It.Is<string>(s => s == "persist.summary"), 
             It.IsAny<string>(), 
-            null, null, default), Times.Once);
+            default, default, default), Times.Once);
     }
 }
