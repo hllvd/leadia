@@ -10,7 +10,6 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public string WhatsAppNumber { get; set; } = string.Empty;
     public UserRole Role { get; set; } = UserRole.User;
-    public BotType BotType { get; set; }
     public string? BotId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

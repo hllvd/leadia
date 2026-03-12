@@ -24,7 +24,6 @@ public record UserDto(
     string Email,
     string WhatsAppNumber,
     UserRole Role,
-    BotType BotType,
     string? BotId,
     DateTimeOffset CreatedAt);
 
@@ -32,20 +31,20 @@ public record BotDto(
     string Id,
     string BotNumber,
     string BotName,
-    BotType BotType,
-    string PersonalityPrompt,
-    string SetupMessage,
-    string SheetTemplateId,
+    string Prompt,
+    string Soul,
+    bool IsAgent,
+    string Description,
     bool IsActive,
     DateTimeOffset CreatedAt);
 
 public record CreateBotDto(
     string BotNumber,
     string BotName,
-    BotType BotType,
-    string PersonalityPrompt,
-    string SetupMessage,
-    string SheetTemplateId);
+    string Prompt,
+    string Soul,
+    bool IsAgent,
+    string Description);
 
 public record MessageDto(
     string Id,

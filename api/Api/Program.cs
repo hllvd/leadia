@@ -4,7 +4,6 @@ using Application.Interfaces;
 using Application.Services;
 using Domain.Entities;
 using Domain.Enums;
-using Infrastructure.BotEngine;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
@@ -65,10 +64,6 @@ builder.Services.AddScoped<IRealStateRepository, RealStateRepository>();
 builder.Services.AddScoped<IConversationStateRepository, DynamoDbConversationStateRepository>();
 builder.Services.AddScoped<IMessagePublisher, NatsPublisher>();
 builder.Services.AddScoped<IPersistenceEventPublisher, NatsPublisher>();
-
-// ── Bot Strategies ──────────────────────────────────────────────────────────
-builder.Services.AddScoped<IBotStrategy, AiBotStrategy>();
-builder.Services.AddScoped<IBotStrategyFactory, BotStrategyFactory>();
 
 // ── LLM Service ─────────────────────────────────────────────────────────────
 builder.Services.AddHttpClient<ILlmService, LlmService>();
@@ -158,8 +153,7 @@ static async Task SeedSuperAdmin(AppDbContext db, IConfiguration config)
         Email = email,
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
         WhatsAppNumber = "+5500000000000",
-        Role = UserRole.Admin,
-        BotType = BotType.GenericAi
+        Role = UserRole.Admin
     });
     await db.SaveChangesAsync();
     Console.WriteLine($"[SEED] Super admin created: {email}");

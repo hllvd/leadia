@@ -30,10 +30,10 @@ public class BotService(IBotRepository botRepository)
         {
             BotNumber = dto.BotNumber,
             BotName = dto.BotName,
-            BotType = dto.BotType,
-            PersonalityPrompt = dto.PersonalityPrompt,
-            SetupMessage = dto.SetupMessage,
-            SheetTemplateId = dto.SheetTemplateId
+            Prompt = dto.Prompt,
+            Soul = dto.Soul,
+            IsAgent = dto.IsAgent,
+            Description = dto.Description
         };
         await botRepository.AddAsync(bot, ct);
         return MapToDto(bot);
@@ -50,7 +50,7 @@ public class BotService(IBotRepository botRepository)
     }
 
     private static BotDto MapToDto(Bot b) => new(
-        b.Id, b.BotNumber, b.BotName, b.BotType,
-        b.PersonalityPrompt, b.SetupMessage,
-        b.SheetTemplateId, b.IsActive, b.CreatedAt);
+        b.Id, b.BotNumber, b.BotName,
+        b.Prompt, b.Soul, b.IsAgent, b.Description,
+        b.IsActive, b.CreatedAt);
 }

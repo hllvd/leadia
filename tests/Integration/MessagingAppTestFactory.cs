@@ -47,7 +47,15 @@ public class MessagingAppTestFactory : WebApplicationFactory<Program>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         if (!await db.Bots.AnyAsync(b => b.BotNumber == botNumber))
         {
-            db.Bots.Add(new Domain.Entities.Bot { Id = Guid.NewGuid().ToString(), BotNumber = botNumber, BotName = "Test Bot", BotType = BotType.GenericAi, IsActive = true });
+            db.Bots.Add(new Domain.Entities.Bot { 
+                Id = Guid.NewGuid().ToString(), 
+                BotNumber = botNumber, 
+                BotName = "Test Bot", 
+                IsActive = true,
+                Prompt = "Test Prompt",
+                Soul = "Test Soul",
+                Description = "Test Description"
+            });
             await db.SaveChangesAsync();
         }
     }

@@ -18,8 +18,7 @@ public static class TestEndpoints
             BotService botService,
             UserService userService,
             MessageService messageService,
-            IUserRepository userRepository,
-            IBotStrategyFactory strategyFactory) =>
+            IUserRepository userRepository) =>
         {
             // Resolve bot
             var bot = await botService.GetByNumberAsync(dto.BotNumber);
@@ -34,12 +33,12 @@ public static class TestEndpoints
             // Store test message
             await messageService.StoreAsync(user.Id, bot.Id, "user", dto.Message);
 
-            // Process via strategy
-            string reply;
+            // Process message (Placeholder for direct AI agent invocation)
+            string reply = "🤖 [Agent Placeholder] Hello! I am processing your message directly.";
+            
             try
             {
-                var strategy = strategyFactory.Resolve(user.BotType);
-                reply = await strategy.ProcessMessageAsync(user, dto.Message);
+                // In a future step, this will call the ILlmService using bot.Prompt and bot.Soul
             }
             catch (Exception ex)
             {

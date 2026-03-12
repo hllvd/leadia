@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getBots, createBot, toggleBot } from '../services/api'
 
-const BOT_TYPES = ['PersonalFinance', 'Mei', 'Agro']
 
 export default function Bots() {
   const [bots, setBots] = useState([])
@@ -9,8 +8,7 @@ export default function Bots() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
-    botNumber: '', botName: '', botType: 'PersonalFinance',
-    personalityPrompt: '', setupMessage: '', sheetTemplateId: ''
+    botNumber: '', botName: '', prompt: '', soul: '', isAgent: false, description: ''
   })
 
   const load = () => getBots().then(setBots)
@@ -24,7 +22,7 @@ export default function Bots() {
     try {
       await createBot(form)
       setShowModal(false)
-      setForm({ botNumber: '', botName: '', botType: 'PersonalFinance', personalityPrompt: '', setupMessage: '', sheetTemplateId: '' })
+      setForm({ botNumber: '', botName: '', prompt: '', soul: '', isAgent: false, description: '' })
       load()
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao criar bot.')
@@ -66,10 +64,12 @@ export default function Bots() {
               </span>
             </div>
             <div style={{ marginBottom: '12px' }}>
-              <span className="badge badge-purple">{b.botType}</span>
+              <span className={`badge ${b.isAgent ? 'badge-purple' : 'badge-blue'}`}>
+                {b.isAgent ? 'AI Agent' : 'Standard Bot'}
+              </span>
             </div>
             <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: '16px', lineHeight: '1.5' }}>
-              {b.personalityPrompt?.slice(0, 90)}…
+              {b.description || 'Sem descrição.'}
             </div>
             <button
               className={`btn btn-sm ${b.isActive ? 'btn-danger' : 'btn-primary'}`}
@@ -97,22 +97,22 @@ export default function Bots() {
                 </div>
               </div>
               <div className="form-group">
-                <label>Tipo de Bot</label>
-                <select value={form.botType} onChange={e => setForm(f => ({ ...f, botType: e.target.value }))}>
-                  {BOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.isAgent} onChange={e => setForm(f => ({ ...f, isAgent: e.target.checked }))} />
+                  Atuar como Agente IA
+                </label>
               </div>
               <div className="form-group">
-                <label>ID do Template Google Sheets</label>
-                <input value={form.sheetTemplateId} onChange={e => setForm(f => ({ ...f, sheetTemplateId: e.target.value }))} required placeholder="1A2B3C4D..." />
+                <label>Descrição</label>
+                <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required placeholder="Bot de atendimento imobiliário" />
               </div>
               <div className="form-group">
-                <label>Mensagem de Boas-Vindas</label>
-                <textarea rows={2} value={form.setupMessage} onChange={e => setForm(f => ({ ...f, setupMessage: e.target.value }))} required placeholder="Olá! Sou o FinBot..." />
+                <label>Soul (Personalidade / Tom de Voz)</label>
+                <textarea rows={2} value={form.soul} onChange={e => setForm(f => ({ ...f, soul: e.target.value }))} required placeholder="Prestativa, formal e focada em conversão..." />
               </div>
               <div className="form-group">
-                <label>Prompt de Personalidade</label>
-                <textarea rows={3} value={form.personalityPrompt} onChange={e => setForm(f => ({ ...f, personalityPrompt: e.target.value }))} required placeholder="Você é um assistente financeiro..." />
+                <label>Prompt Principal</label>
+                <textarea rows={4} value={form.prompt} onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))} required placeholder="Você é o assistente virtual da imobiliária XYZ..." />
               </div>
               {error && <p className="error">{error}</p>}
               <div className="modal-actions">

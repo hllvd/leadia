@@ -20,14 +20,12 @@ public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
     private readonly INatsJSContext _js;
-    private readonly IBotStrategyFactory _strategyFactory; // Added as per instruction, but not used in the provided snippet
     private readonly IServiceProvider _serviceProvider;
 
-    public Worker(ILogger<Worker> logger, INatsConnection connection, IBotStrategyFactory strategyFactory, IServiceProvider serviceProvider, INatsJSContext? js = null)
+    public Worker(ILogger<Worker> logger, INatsConnection connection, IServiceProvider serviceProvider, INatsJSContext? js = null)
     {
         _logger = logger;
         _js = js ?? new NatsJSContext(connection);
-        _strategyFactory = strategyFactory;
         _serviceProvider = serviceProvider;
     }
 

@@ -1,7 +1,6 @@
 using Amazon.DynamoDBv2;
 using Application.Interfaces;
 using Application.Services;
-using Infrastructure.BotEngine;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using MessageWorker;
@@ -35,10 +34,6 @@ builder.Services.AddScoped<IMessagePublisher, NatsPublisher>();
 // ── Application Services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<ConversationStateService>();
 builder.Services.AddHttpClient<ILlmService, LlmService>();
-
-// ── Bot Strategies ──────────────────────────────────────────────────────────
-builder.Services.AddScoped<IBotStrategy, AiBotStrategy>();
-builder.Services.AddScoped<IBotStrategyFactory, BotStrategyFactory>();
 
 // ── Background Worker ────────────────────────────────────────────────────────
 builder.Services.AddHostedService<Worker>();

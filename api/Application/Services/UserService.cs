@@ -36,7 +36,6 @@ public class UserService(
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             WhatsAppNumber = dto.WhatsAppNumber,
             BotId = dto.BotId,
-            BotType = bot.BotType,
             Role = UserRole.User
         };
 
@@ -79,5 +78,5 @@ public class UserService(
 
     private static UserDto MapToDto(User u) => new(
         u.Id, u.Name, u.Email, u.WhatsAppNumber,
-        u.Role, u.BotType, u.BotId, u.CreatedAt);
+        u.Role, u.BotId, u.CreatedAt);
 }

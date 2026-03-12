@@ -24,7 +24,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             b.HasKey(e => e.Id);
             b.HasIndex(e => e.BotNumber).IsUnique();
-            b.Property(e => e.BotType).HasConversion<string>();
             b.Property(e => e.CreatedAt).HasConversion(
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
             b.Property(e => e.UpdatedAt).HasConversion(
@@ -38,7 +37,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.HasIndex(e => e.Email).IsUnique();
             b.HasIndex(e => e.WhatsAppNumber).IsUnique();
             b.Property(e => e.Role).HasConversion<string>();
-            b.Property(e => e.BotType).HasConversion<string>();
             b.Property(e => e.CreatedAt).HasConversion(
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
             b.Property(e => e.UpdatedAt).HasConversion(
