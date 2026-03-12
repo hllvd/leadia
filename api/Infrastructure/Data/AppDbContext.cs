@@ -11,6 +11,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Message>          Messages          => Set<Message>();
     public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
     public DbSet<ConversationFact>  ConversationFacts  => Set<ConversationFact>();
+    public DbSet<RealStateAgency>   RealStateAgencies  => Set<RealStateAgency>();
+    public DbSet<RealStateBroker>   RealStateBrokers   => Set<RealStateBroker>();
+    public DbSet<BrokerData>        BrokersData        => Set<BrokerData>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +91,40 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.HasIndex(e => new { e.ConversationId, e.FactName }).IsUnique();
             b.Property(e => e.UpdatedAt).HasConversion(
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+        });
+
+        // ── RealStateAgency ──
+        modelBuilder.Entity<RealStateAgency>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasMany(e => e.BrokerAssignments)
+             .WithOne(a => a.RealStateAgency)
+             .HasForeignKey(a => a.RealStateAgencyId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── RealStateBroker ──
+        modelBuilder.Entity<RealStateBroker>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasOne(e => e.Broker)
+             .WithMany()
+             .HasForeignKey(e => e.BrokerId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── BrokerData ──
+        modelBuilder.Entity<BrokerData>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.Property(e => e.CreatedAt).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.Property(e => e.UpdatedAt).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.HasOne(e => e.Broker)
+             .WithMany()
+             .HasForeignKey(e => e.BrokerId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

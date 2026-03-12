@@ -43,7 +43,11 @@ if (!isTest)
 {
     var connectionString = config["Database:ConnectionString"] ?? "Data Source=contazap.db";
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlite(connectionString));
+    {
+        options.UseSqlite(connectionString);
+        // Suppress pending model changes warning since we are managing migrations manually in this constrained environment
+        options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    });
 }
 else
 {
@@ -55,6 +59,7 @@ else
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IBotRepository, BotRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
+builder.Services.AddScoped<IRealStateRepository, RealStateRepository>();
 
 // Move conversation state to DynamoDB
 builder.Services.AddScoped<IConversationStateRepository, DynamoDbConversationStateRepository>();
@@ -73,6 +78,7 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<BotService>();
 builder.Services.AddScoped<MessageService>();
 builder.Services.AddScoped<ConversationStateService>();
+builder.Services.AddScoped<RealStateService>();
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtKey = config["Jwt:SecretKey"]
@@ -98,7 +104,9 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-var allowedOrigins = config.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var allowedOrigins = config.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:3000", "http://localhost:5173" };
+if (allowedOrigins.Length == 0) allowedOrigins = new[] { "http://localhost:3000", "http://localhost:5173" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ContaZapCors", policy =>
@@ -126,11 +134,13 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── Endpoints ─────────────────────────────────────────────────────────────────
+app.MapGet("/", () => "API is running on port 5050");
 app.MapHealthEndpoints();
 app.MapAuthEndpoints(config);
 app.MapUserEndpoints();
 app.MapBotEndpoints();
 app.MapWebhookEndpoints(config);
+app.MapRealStateEndpoints();
 app.MapTestEndpoints();
 
 app.Run();

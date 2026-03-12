@@ -16,45 +16,6 @@ using System.Text;
 
 namespace Integration;
 
-public class MessagingAppTestFactory : WebApplicationFactory<Program>
-{
-    public Mock<IMessagePublisher> MessagePublisherMock { get; } = new();
-    public Mock<INatsConnection> NatsConnMock { get; } = new();
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        Environment.SetEnvironmentVariable("INTEGRATION_TEST", "true");
-        builder.UseEnvironment("Testing");
-
-        builder.ConfigureServices(services =>
-        {
-            // Add InMemory DB
-            services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("TestDb"));
-
-            // Remove real NATS
-            var natsDesc = services.SingleOrDefault(d => d.ServiceType == typeof(INatsConnection));
-            if (natsDesc != null) services.Remove(natsDesc);
-            services.AddSingleton(NatsConnMock.Object);
-
-            // Mock Publisher
-            var pubDesc = services.SingleOrDefault(d => d.ServiceType == typeof(IMessagePublisher));
-            if (pubDesc != null) services.Remove(pubDesc);
-            services.AddSingleton(MessagePublisherMock.Object);
-        });
-    }
-
-    public async Task SeedBotAsync(string botNumber)
-    {
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        if (!await db.Bots.AnyAsync(b => b.BotNumber == botNumber))
-        {
-            db.Bots.Add(new Bot { Id = Guid.NewGuid().ToString(), BotNumber = botNumber, BotName = "Test Bot", BotType = BotType.GenericAi, IsActive = true });
-            await db.SaveChangesAsync();
-        }
-    }
-}
-
 public record WebhookTestRequest(string From, string Message);
 
 public class WebhookIntegrationTests(MessagingAppTestFactory factory) : IClassFixture<MessagingAppTestFactory>
