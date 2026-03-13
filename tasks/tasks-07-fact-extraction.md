@@ -1,5 +1,11 @@
 # Fact Extraction Tasks
 
+## Dependencies
+- **Requires:** tasks-09 (LLM context construction)
+- **Required by:** tasks-31 (core intelligence integration - LLM response parsing)
+- **Related:** tasks-08 (facts and summary updated together)
+- **Related:** tasks-11 (persistence of extracted facts)
+
 ## Small Tasks
 
 1. ~~Implement fact extraction logic using LLM or rule-based system.~~

@@ -1,5 +1,14 @@
 # DynamoDB Setup and Access Patterns Tasks
 
+## Dependencies
+- **Required by:** tasks-04 (user classification needs state lookup)
+- **Required by:** tasks-05 (cache fallback to DynamoDB)
+- **Required by:** tasks-11 (persistence worker writes)
+- **Required by:** tasks-31 (core intelligence integration - state persistence)
+- **Related:** tasks-23 (TTL configuration)
+- **Related:** tasks-24 (operational excellence)
+- **Related:** tasks-25 (GSI implementation)
+
 ## Small Tasks
 
 1. ~~Create DynamoDB table 'crm_memory' with PK and SK as string keys.~~

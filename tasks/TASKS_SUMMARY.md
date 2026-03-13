@@ -54,6 +54,9 @@ All small tasks related to unit tests (normalization, deduplication, classificat
 ### tasks-16-future-crm-integration.md
 All small tasks related to future SQLite schema design for real estate CRM, foreign key relationships, migration scripts, CRUD operations, data flow between DynamoDB and SQLite, synchronization mechanisms, and API endpoints.
 
+### tasks-31-core-intelligence-integration.md
+All small tasks related to consolidating and integrating core intelligence components including cache-aside pattern, deduplication flow, complete LLM integration pipeline, event publishing orchestration, persistence handlers, and end-to-end message flow with distributed tracing.
+
 ---
 
 ## Advanced System Tasks (17-30)
@@ -102,6 +105,9 @@ All small tasks related to dead-letter queue configuration, monitoring, alerting
 ## tasks-30-nats-clustering-ha.md
 All small tasks related to NATS clustering for high availability including multi-node setup, failover testing, health checks, and disaster recovery.
 
+## tasks-31-core-intelligence-integration.md
+All small tasks related to end-to-end integration of core intelligence components including cache-aside pattern implementation, deduplication flow, LLM integration pipeline, event publishing flow, persistence handlers, and complete message flow with distributed tracing.
+
 ---
 
 ## Task Organization Summary
@@ -146,7 +152,8 @@ All small tasks related to NATS clustering for high availability including multi
 ## Task Numbering
 - Core system tasks: tasks-01 through tasks-16
 - Advanced system tasks: tasks-17 through tasks-30
-- **Total: 30 task files covering all aspects of the WhatsApp CRM system**
+- Integration tasks: tasks-31
+- **Total: 31 task files covering all aspects of the WhatsApp CRM system**
 
 ---
 

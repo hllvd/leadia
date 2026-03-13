@@ -1,5 +1,18 @@
 # Message Worker Implementation Tasks
 
+## Dependencies
+- **Requires:** tasks-02 (message normalization)
+- **Requires:** tasks-03 (deduplication logic)
+- **Requires:** tasks-04 (user classification)
+- **Requires:** tasks-05 (cache access)
+- **Requires:** tasks-06 (buffer management)
+- **Requires:** tasks-07 (fact extraction)
+- **Requires:** tasks-08 (summary generation)
+- **Requires:** tasks-09 (LLM context construction)
+- **Requires:** tasks-13 (NATS configuration)
+- **Required by:** tasks-31 (core intelligence integration - orchestrates all components)
+- **Related:** tasks-20 (worker enhancements)
+
 ## Small Tasks
 
 1. ~~Subscribe to NATS stream 'messages' with subject 'message.received'.~~

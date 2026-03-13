@@ -1,5 +1,13 @@
 # Persistence Worker Enhancement Tasks
 
+## Dependencies
+- **Requires:** tasks-11 (base persistence worker implementation)
+- **Integrates with:** tasks-31 (core intelligence integration - persistence handlers)
+- **Related:** tasks-12 (DynamoDB connection)
+- **Related:** tasks-13 (NATS connection)
+- **Related:** tasks-19 (monitoring and metrics)
+- **Related:** tasks-29 (dead-letter queue handling)
+
 ## Small Tasks
 
 1. Implement worker startup sequence: connect to NATS, verify streams, verify DynamoDB table.

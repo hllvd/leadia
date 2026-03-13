@@ -1,5 +1,12 @@
 # Event Schema Validation Tasks
 
+## Dependencies
+- **Requires:** tasks-02 (message.received schema)
+- **Requires:** tasks-10 (persist.* event schemas)
+- **Required by:** tasks-11 (persistence worker validates events)
+- **Required by:** tasks-31 (core intelligence integration validates all events)
+- **Related:** tasks-29 (invalid events go to DLQ)
+
 ## Small Tasks
 
 1. Define JSON schema for message.received event payload.

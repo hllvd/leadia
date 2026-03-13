@@ -1,5 +1,15 @@
 # Data Flow Optimization Tasks
 
+## Dependencies
+- **Requires:** tasks-02 (webhook response time optimization)
+- **Requires:** tasks-05 (cache performance)
+- **Requires:** tasks-10 (message worker performance)
+- **Requires:** tasks-11 (persistence worker performance)
+- **Requires:** tasks-31 (end-to-end integration for tracing)
+- **Related:** tasks-19 (NATS monitoring)
+- **Related:** tasks-20 (message worker metrics)
+- **Related:** tasks-21 (persistence worker metrics)
+
 ## Small Tasks
 
 1. Optimize webhook response time to consistently achieve < 50ms target.

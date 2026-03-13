@@ -1,5 +1,9 @@
 # Authentication and Webhook Security Tasks
 
+## Dependencies
+- **Required by:** tasks-02 (message ingestion happens after security validation)
+- **Related:** tasks-01 (webhook endpoint security)
+
 ## Small Tasks
 
 1. ~~Implement HMAC-SHA256 signature verification for webhook requests using the WEBHOOK_SECRET environment variable.~~

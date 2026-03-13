@@ -1,5 +1,13 @@
 # Dead-Letter Queue Handling Tasks
 
+## Dependencies
+- **Requires:** tasks-13 (NATS DLQ configuration)
+- **Requires:** tasks-17 (stream management with DLQ subjects)
+- **Required by:** tasks-20 (message worker error handling)
+- **Required by:** tasks-21 (persistence worker error handling)
+- **Related:** tasks-28 (schema validation failures go to DLQ)
+- **Related:** tasks-19 (DLQ monitoring)
+
 ## Small Tasks
 
 1. Configure dead-letter subject 'message.received.DEAD' for failed message processing.

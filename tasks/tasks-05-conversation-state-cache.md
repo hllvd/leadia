@@ -1,5 +1,11 @@
 # Conversation State Cache Tasks
 
+## Dependencies
+- **Required by:** tasks-04 (user classification needs cache lookup)
+- **Required by:** tasks-31 (core intelligence integration - cache-aside pattern)
+- **Related:** tasks-12 (DynamoDB as fallback storage)
+- **Related:** tasks-22 (horizontal scaling requires shared cache)
+
 ## Small Tasks
 
 1. Implement local fast memory cache (LRU or Redis) for ConversationState objects.

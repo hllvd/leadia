@@ -1,5 +1,12 @@
 # Message Ingestion and Normalization Tasks
 
+## Dependencies
+- **Requires:** tasks-01 (webhook security validation)
+- **Required by:** tasks-03 (deduplication uses normalized message)
+- **Required by:** tasks-10 (message worker processes normalized messages)
+- **Required by:** tasks-13 (publishes to NATS)
+- **Required by:** tasks-31 (core intelligence integration starts with normalized messages)
+
 ## Small Tasks
 
 1. ~~Create the POST /webhook/whatsapp endpoint in the API gateway.~~

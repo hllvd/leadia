@@ -1,5 +1,12 @@
 # Message Worker Enhancement Tasks
 
+## Dependencies
+- **Requires:** tasks-10 (base message worker implementation)
+- **Integrates with:** tasks-31 (core intelligence integration)
+- **Related:** tasks-05 (Redis connection)
+- **Related:** tasks-13 (NATS connection)
+- **Related:** tasks-19 (monitoring and metrics)
+
 ## Small Tasks
 
 1. Implement worker startup sequence: connect to NATS, verify streams, register consumer.

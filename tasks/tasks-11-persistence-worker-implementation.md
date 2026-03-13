@@ -1,5 +1,12 @@
 # Persistence Worker Implementation Tasks
 
+## Dependencies
+- **Requires:** tasks-12 (DynamoDB setup and access patterns)
+- **Requires:** tasks-13 (NATS configuration)
+- **Required by:** tasks-31 (core intelligence integration - persistence handlers)
+- **Related:** tasks-21 (worker enhancements)
+- **Related:** tasks-23 (TTL configuration)
+
 ## Small Tasks
 
 1. ~~Subscribe to NATS stream 'persistence_events' with subjects 'persist.message', 'persist.summary', 'persist.facts'.~~

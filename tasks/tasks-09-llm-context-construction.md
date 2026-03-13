@@ -1,5 +1,12 @@
 # LLM Context Construction Tasks
 
+## Dependencies
+- **Requires:** tasks-05 (cache for conversation state)
+- **Requires:** tasks-06 (buffer contents)
+- **Required by:** tasks-07 (fact extraction needs context)
+- **Required by:** tasks-08 (summary generation needs context)
+- **Required by:** tasks-31 (core intelligence integration - LLM context assembly)
+
 ## Small Tasks
 
 1. ~~Build LLM context payload with sections: SUMMARY, FACTS, RECENT MESSAGES, NEW MESSAGE.~~

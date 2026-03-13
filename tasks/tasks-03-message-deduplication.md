@@ -1,5 +1,10 @@
 # Message Deduplication Tasks
 
+## Dependencies
+- **Requires:** tasks-02 (message normalization for hash input)
+- **Required by:** tasks-31 (core intelligence integration - deduplication flow)
+- **Related:** tasks-04 (user classification uses deduplication results)
+
 ## Small Tasks
 
 1. ~~Generate message_hash using SHA256(timestamp + broker_id + customer_id + text).~~

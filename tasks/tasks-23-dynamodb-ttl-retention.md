@@ -1,5 +1,11 @@
 # DynamoDB TTL and Retention Tasks
 
+## Dependencies
+- **Requires:** tasks-12 (DynamoDB table setup)
+- **Required by:** tasks-11 (persistence worker adds TTL to writes)
+- **Related:** tasks-24 (operational excellence)
+- **Related:** tasks-27 (data residency and compliance)
+
 ## Small Tasks
 
 1. Enable TTL attribute on DynamoDB table with attribute name 'ttl'.

@@ -1,5 +1,15 @@
 # NATS JetStream Configuration Tasks
 
+## Dependencies
+- **Required by:** tasks-02 (webhook publishes to NATS)
+- **Required by:** tasks-10 (message worker consumes from NATS)
+- **Required by:** tasks-11 (persistence worker consumes from NATS)
+- **Required by:** tasks-31 (core intelligence integration - event flow)
+- **Related:** tasks-17 (stream management)
+- **Related:** tasks-18 (consumer configuration)
+- **Related:** tasks-19 (monitoring)
+- **Related:** tasks-30 (clustering)
+
 ## Small Tasks
 
 1. ~~Set up NATS server with JetStream enabled.~~

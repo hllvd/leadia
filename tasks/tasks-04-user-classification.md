@@ -1,5 +1,11 @@
 # User Classification Tasks
 
+## Dependencies
+- **Requires:** tasks-03 (deduplication check before classification)
+- **Requires:** tasks-05 (cache for conversation state lookup)
+- **Required by:** tasks-31 (core intelligence integration - state management)
+- **Related:** tasks-12 (DynamoDB for persistent state storage)
+
 ## Small Tasks
 
 1. ~~Check if conversation_id exists in the local cache or DynamoDB.~~

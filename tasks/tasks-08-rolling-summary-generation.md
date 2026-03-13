@@ -1,5 +1,12 @@
 # Rolling Summary Generation Tasks
 
+## Dependencies
+- **Requires:** tasks-06 (buffer thresholds trigger summary)
+- **Requires:** tasks-09 (LLM context construction)
+- **Required by:** tasks-31 (core intelligence integration - LLM integration flow)
+- **Related:** tasks-07 (facts and summary updated together)
+- **Related:** tasks-11 (persistence of summary)
+
 ## Small Tasks
 
 1. ~~Check summary trigger conditions: buffer_messages >= 5, buffer_chars >= 400, or time_since_last > 30s.~~

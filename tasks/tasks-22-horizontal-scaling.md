@@ -1,5 +1,13 @@
 # Horizontal Scaling Implementation Tasks
 
+## Dependencies
+- **Requires:** tasks-05 (shared cache for multi-instance state)
+- **Requires:** tasks-10 (message worker with queue groups)
+- **Requires:** tasks-11 (persistence worker with queue groups)
+- **Requires:** tasks-13 (NATS queue group configuration)
+- **Related:** tasks-14 (Docker containerization)
+- **Related:** tasks-22 (Kubernetes deployment)
+
 ## Small Tasks
 
 1. Verify queue group load balancing works with multiple message-worker instances.

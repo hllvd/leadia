@@ -1,5 +1,11 @@
 # Message Buffer Management Tasks
 
+## Dependencies
+- **Requires:** tasks-05 (cache to store buffer state)
+- **Required by:** tasks-08 (rolling summary triggered by buffer thresholds)
+- **Required by:** tasks-31 (core intelligence integration - buffer management)
+- **Related:** tasks-09 (LLM context includes buffer contents)
+
 ## Small Tasks
 
 1. ~~Append incoming message text to the buffer array.~~
