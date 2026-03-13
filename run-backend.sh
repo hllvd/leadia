@@ -8,8 +8,8 @@ PID=$(lsof -ti:$PORT)
 if [ -z "$PID" ]; then
     echo "✅ Port $PORT is already free."
 else
-    echo "💀 Killing process $PID on $PORT..."
-    kill -9 $PID
+    echo "💀 Killing process(es) $PID on port $PORT..."
+    echo "$PID" | xargs kill -9
 fi
 
 echo "🏗️ Building the application..."

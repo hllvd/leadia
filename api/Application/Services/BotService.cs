@@ -49,6 +49,23 @@ public class BotService(IBotRepository botRepository)
         return true;
     }
 
+    public async Task<BotDto?> UpdateAsync(string id, UpdateBotDto dto, CancellationToken ct = default)
+    {
+        var bot = await botRepository.GetByIdAsync(id, ct);
+        if (bot is null) return null;
+
+        if (dto.BotNumber is not null) bot.BotNumber = dto.BotNumber;
+        if (dto.BotName is not null) bot.BotName = dto.BotName;
+        if (dto.Prompt is not null) bot.Prompt = dto.Prompt;
+        if (dto.Soul is not null) bot.Soul = dto.Soul;
+        if (dto.IsAgent is not null) bot.IsAgent = dto.IsAgent.Value;
+        if (dto.Description is not null) bot.Description = dto.Description;
+
+        bot.UpdatedAt = DateTimeOffset.UtcNow;
+        await botRepository.UpdateAsync(bot, ct);
+        return MapToDto(bot);
+    }
+
     private static BotDto MapToDto(Bot b) => new(
         b.Id, b.BotNumber, b.BotName,
         b.Prompt, b.Soul, b.IsAgent, b.Description,

@@ -53,6 +53,9 @@ export const getBots = () =>
 export const createBot = data =>
   api.post('/bots', data).then(r => r.data)
 
+export const updateBot = (id, data) =>
+  api.put(`/bots/${id}`, data).then(r => r.data)
+
 export const toggleBot = id =>
   api.patch(`/bots/${id}/toggle`).then(r => r.data)
 

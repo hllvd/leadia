@@ -46,6 +46,14 @@ public record CreateBotDto(
     bool IsAgent,
     string Description);
 
+public record UpdateBotDto(
+    string? BotNumber,
+    string? BotName,
+    string? Prompt,
+    string? Soul,
+    bool? IsAgent,
+    string? Description);
+
 public record MessageDto(
     string Id,
     string UserId,

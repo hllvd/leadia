@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getBots, createBot, toggleBot } from '../services/api'
+import { getBots, createBot, updateBot, toggleBot } from '../services/api'
 
 
 export default function Bots() {
@@ -10,25 +10,47 @@ export default function Bots() {
   const [form, setForm] = useState({
     botNumber: '', botName: '', prompt: '', soul: '', isAgent: false, description: ''
   })
+  const [editingId, setEditingId] = useState(null)
 
   const load = () => getBots().then(setBots)
 
   useEffect(() => { load() }, [])
 
-  const handleCreate = async e => {
+  const handleSubmit = async e => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      await createBot(form)
-      setShowModal(false)
-      setForm({ botNumber: '', botName: '', prompt: '', soul: '', isAgent: false, description: '' })
+      if (editingId) {
+        await updateBot(editingId, form)
+      } else {
+        await createBot(form)
+      }
+      handleCloseModal()
       load()
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao criar bot.')
+      setError(err.response?.data?.error || 'Erro ao salvar bot.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleOpenNew = () => {
+    setEditingId(null)
+    setForm({ botNumber: '', botName: '', prompt: '', soul: '', isAgent: false, description: '' })
+    setShowModal(true)
+  }
+
+  const handleOpenEdit = bot => {
+    setEditingId(bot.id)
+    setForm({ botNumber: bot.botNumber, botName: bot.botName, prompt: bot.prompt, soul: bot.soul, isAgent: bot.isAgent, description: bot.description })
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setEditingId(null)
+    setForm({ botNumber: '', botName: '', prompt: '', soul: '', isAgent: false, description: '' })
   }
 
   const handleToggle = async id => {
@@ -43,7 +65,7 @@ export default function Bots() {
           <h1 className="page-title">Bots</h1>
           <p className="page-sub">Gerencie os bots WhatsApp da plataforma</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>＋ Novo Bot</button>
+        <button className="btn btn-primary" onClick={handleOpenNew}>＋ Novo Bot</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
@@ -71,21 +93,29 @@ export default function Bots() {
             <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: '16px', lineHeight: '1.5' }}>
               {b.description || 'Sem descrição.'}
             </div>
-            <button
-              className={`btn btn-sm ${b.isActive ? 'btn-danger' : 'btn-primary'}`}
-              onClick={() => handleToggle(b.id)}
-            >
-              {b.isActive ? 'Desativar' : 'Ativar'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => handleOpenEdit(b)}
+              >
+                Editar
+              </button>
+              <button
+                className={`btn btn-sm ${b.isActive ? 'btn-danger' : 'btn-primary'}`}
+                onClick={() => handleToggle(b.id)}
+              >
+                {b.isActive ? 'Desativar' : 'Ativar'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
 
       {showModal && (
-        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+        <div className="modal-backdrop" onClick={handleCloseModal}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ width: '520px' }}>
-            <div className="modal-title">Novo Bot</div>
-            <form onSubmit={handleCreate}>
+            <div className="modal-title">{editingId ? 'Editar Bot' : 'Novo Bot'}</div>
+            <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
                 <div className="form-group">
                   <label>Nome do Bot</label>
@@ -116,8 +146,8 @@ export default function Bots() {
               </div>
               {error && <p className="error">{error}</p>}
               <div className="modal-actions">
-                <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Criando...' : 'Criar Bot'}</button>
+                <button type="button" className="btn btn-ghost" onClick={handleCloseModal}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Salvando...' : (editingId ? 'Salvar Alterações' : 'Criar Bot')}</button>
               </div>
             </form>
           </div>

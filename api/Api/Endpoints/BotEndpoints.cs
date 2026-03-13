@@ -30,6 +30,13 @@ public static class BotEndpoints
             return Results.Created($"/api/bots/{bot.Id}", bot);
         });
 
+        // PUT /api/bots/{id}
+        group.MapPut("/{id}", async (string id, UpdateBotDto dto, BotService botService) =>
+        {
+            var bot = await botService.UpdateAsync(id, dto);
+            return bot is null ? Results.NotFound() : Results.Ok(bot);
+        });
+
         // PATCH /api/bots/{id}/toggle
         group.MapPatch("/{id}/toggle", async (string id, BotService botService) =>
         {
