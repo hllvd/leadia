@@ -16,3 +16,19 @@
 12. Create runbook for DynamoDB operational issues.
 13. Test backup and restore procedures in staging environment.
 14. Document capacity planning and cost optimization strategies.
+
+---
+
+## Unit Tests
+
+1. Test IAM policy allows only required DynamoDB actions (least-privilege).
+2. Test item size validation rejects items > 400KB.
+3. Test CloudWatch alarm thresholds are correctly configured.
+
+## Integration Tests
+
+1. Test PITR is enabled and a restore point can be created.
+2. Test backup restore produces identical table data.
+3. Test CloudWatch alarm fires on ThrottledRequests.
+4. Test CloudWatch alarm fires on consumed capacity > 80%.
+5. Test workers use IAM role credentials (no hardcoded keys in env).

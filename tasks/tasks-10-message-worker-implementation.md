@@ -27,3 +27,25 @@
 10. Implement graceful shutdown and message reprocessing.
 11. ~~Test worker with simulated message events.~~
 12. Monitor worker performance and throughput.
+
+---
+
+## Unit Tests
+
+1. Test message ACK is sent after successful processing.
+2. Test message NAK is sent on processing failure.
+3. Test duplicate message is skipped before any processing.
+4. Test buffer update is called for each new message.
+5. Test LLM trigger is called only when buffer thresholds are met.
+6. Test persist.summary is published only when summary is updated.
+7. Test persist.facts is published only when facts change.
+
+## Integration Tests
+
+1. Test end-to-end: NATS message → worker → persist.* events published.
+2. Test worker loads state from cache on message arrival.
+3. Test worker loads state from DynamoDB on cache miss.
+4. Test worker handles LLM failure gracefully (buffer retained, no crash).
+5. Test worker handles NATS publish failure with retry.
+6. Test two worker instances share load via queue group.
+7. Test worker recovers and reprocesses after crash.

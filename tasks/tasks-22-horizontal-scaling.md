@@ -22,3 +22,20 @@
 10. Test worker behavior during rolling deployments.
 11. Document Kubernetes deployment configuration for horizontal pod autoscaling.
 12. Test cache contention scenarios with multiple workers accessing same conversation.
+
+---
+
+## Unit Tests
+
+1. Test queue group configuration is identical across all worker instances.
+2. Test worker instance ID is included in logs and metrics.
+3. Test graceful shutdown drains in-flight messages before stopping.
+
+## Integration Tests
+
+1. Test 3 message-worker instances each receive different messages (no duplicates).
+2. Test 3 persistence-worker instances each receive different events.
+3. Test conversation state is consistent when two workers process same conversation sequentially.
+4. Test no messages are lost during rolling deployment (one instance down).
+5. Test cache contention: two workers loading same conversation_id return same state.
+6. Test system handles 3x normal load with 3 worker replicas.

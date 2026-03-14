@@ -16,3 +16,23 @@
 12. Add consumer health monitoring (pending messages, redelivery count).
 13. Test consumer behavior with message acknowledgment scenarios.
 14. Test consumer behavior when max_deliver is exceeded.
+
+---
+
+## Unit Tests
+
+1. Test message-worker consumer config has durable name 'message-worker-group'.
+2. Test persistence-worker consumer config has durable name 'persistence-worker-group'.
+3. Test AckPolicy is set to Explicit for both consumers.
+4. Test message-worker max_deliver is 5, ack_wait is 30s.
+5. Test persistence-worker max_deliver is 10, ack_wait is 60s.
+6. Test consumer registration is idempotent.
+
+## Integration Tests
+
+1. Test unacknowledged message-worker message is redelivered after 30s.
+2. Test unacknowledged persistence-worker message is redelivered after 60s.
+3. Test message is routed to dead-letter after 5 failed message-worker attempts.
+4. Test message is routed to dead-letter after 10 failed persistence-worker attempts.
+5. Test two message-worker instances each receive different messages.
+6. Test consumer survives worker restart and resumes from last position.

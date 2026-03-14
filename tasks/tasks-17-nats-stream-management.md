@@ -14,3 +14,21 @@
 10. Create stream backup/restore procedures for production.
 11. Document stream configuration in infrastructure-as-code format.
 12. Test stream creation with various configuration scenarios.
+
+---
+
+## Unit Tests
+
+1. Test stream creation with LimitsPolicy sets correct retention (24h / 1M msgs).
+2. Test stream creation with WorkQueuePolicy deletes messages on ack.
+3. Test max message size is enforced (64KB for messages, 256KB for persistence_events).
+4. Test idempotent stream creation does not throw on existing stream.
+5. Test dead-letter subject is correctly configured.
+
+## Integration Tests
+
+1. Test message exceeding max size is rejected by NATS.
+2. Test messages older than 24h are purged from 'messages' stream.
+3. Test 'persistence_events' messages are deleted after acknowledgment.
+4. Test stream health check returns healthy status.
+5. Test stream survives NATS server restart with data intact.

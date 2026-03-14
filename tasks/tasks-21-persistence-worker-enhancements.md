@@ -27,3 +27,23 @@
 15. Test worker behavior with DynamoDB unavailability.
 16. Test worker behavior with invalid event schemas.
 17. Test worker behavior when max_deliver is exceeded.
+
+---
+
+## Unit Tests
+
+1. Test worker exits on startup if NATS is unreachable.
+2. Test worker exits on startup if DynamoDB is unreachable.
+3. Test exponential backoff increases delay on each retry.
+4. Test invalid event schema routes to dead-letter.
+5. Test structured log includes event_type, conversation_id, duration_ms, retry_count.
+6. Test idempotent write: same persist.message twice produces one DynamoDB item.
+
+## Integration Tests
+
+1. Test DynamoDB throttling triggers retry and eventually succeeds.
+2. Test event exceeding max_deliver is routed to persist.DEAD.
+3. Test worker restarts automatically after crash.
+4. Test DynamoDB write latency metric is recorded per operation.
+5. Test dead-letter count metric increments on failed events.
+6. Test worker resumes processing after DynamoDB recovers from outage.

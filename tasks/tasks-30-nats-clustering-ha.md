@@ -16,3 +16,20 @@
 12. Document cluster upgrade procedures with zero downtime.
 13. Implement cluster backup and disaster recovery procedures.
 14. Test cluster performance under high load.
+
+---
+
+## Unit Tests
+
+1. Test cluster configuration includes 3+ node routes.
+2. Test JetStream replica count is set to 3 for production streams.
+3. Test health check detects when a cluster node is down.
+
+## Integration Tests
+
+1. Test cluster continues operating when one node goes down.
+2. Test workers reconnect automatically after a NATS node failure.
+3. Test no messages are lost during a single node failure.
+4. Test split-brain scenario resolves correctly after network partition heals.
+5. Test cluster performance sustains throughput with one node removed.
+6. Test zero-downtime upgrade: rolling restart of cluster nodes.

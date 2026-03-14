@@ -23,3 +23,23 @@
 12. Test schema validation with valid and invalid payloads.
 13. Monitor schema validation error rates.
 14. Create schema migration guide for breaking changes.
+
+---
+
+## Unit Tests
+
+1. Test valid message.received payload passes schema validation.
+2. Test valid persist.message payload passes schema validation.
+3. Test valid persist.summary payload passes schema validation.
+4. Test valid persist.facts payload passes schema validation.
+5. Test missing required field fails validation with descriptive error.
+6. Test wrong field type fails validation.
+7. Test extra unknown fields are handled gracefully.
+
+## Integration Tests
+
+1. Test invalid message.received event is routed to dead-letter queue.
+2. Test invalid persist.* event is routed to dead-letter queue.
+3. Test schema validation error rate metric is recorded.
+4. Test schema v1 and v2 events are both processed correctly (backward compatibility).
+5. Test validation failure includes original payload in dead-letter message.

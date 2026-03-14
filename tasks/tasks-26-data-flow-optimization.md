@@ -26,3 +26,20 @@
 12. Test system performance under various load scenarios.
 13. Identify and optimize bottlenecks in the data flow.
 14. Create performance benchmarking suite.
+
+---
+
+## Unit Tests
+
+1. Test correlation ID is generated and attached to each message.
+2. Test latency tracking records duration for each pipeline segment.
+3. Test cache hit/miss latency difference is measurable.
+
+## Integration Tests
+
+1. Test webhook response time is consistently < 50ms under normal load.
+2. Test NATS delivery latency is < 1ms between publisher and consumer.
+3. Test end-to-end message processing completes in < 5s (excluding LLM).
+4. Test system sustains 100 messages/second without degradation.
+5. Test distributed trace spans all components for a single message.
+6. Test cache hit rate is > 90% under sustained load.

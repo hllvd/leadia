@@ -20,3 +20,24 @@
 9. Implement idempotent operations to handle duplicate events.
 10. ~~Test persistence with various event types.~~
 11. Monitor persistence latency and error rates.
+
+---
+
+## Unit Tests
+
+1. Test persist.message writes correct PK=CONV#<id>, SK=MSG#<timestamp>.
+2. Test persist.summary updates META record with rolling_summary and last_hash.
+3. Test persist.facts writes one FACT#<name> record per fact.
+4. Test unknown event type is handled without crash.
+5. Test ACK is sent after successful DynamoDB write.
+6. Test NAK is sent on DynamoDB write failure.
+
+## Integration Tests
+
+1. Test persist.message event creates correct DynamoDB item.
+2. Test persist.summary event updates existing META record.
+3. Test persist.facts event writes all facts to DynamoDB.
+4. Test DynamoDB throttling triggers retry with backoff.
+5. Test duplicate events produce same DynamoDB state (idempotency).
+6. Test two persistence-worker instances share load via queue group.
+7. Test worker recovers and reprocesses events after crash.

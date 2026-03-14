@@ -22,3 +22,23 @@
 9. ~~Test access patterns with sample data.~~
 10. Optimize read/write capacity for expected load.
 11. Implement pagination for large result sets.
+
+---
+
+## Unit Tests
+
+1. Test GetItem for META record returns correct ConversationState fields.
+2. Test Query for FACT# prefix returns all facts for a conversation.
+3. Test Query for MSG# prefix returns messages in chronological order.
+4. Test PutItem for new conversation creates all required attributes.
+5. Test UpdateItem for META record updates only specified fields.
+6. Test error handling returns appropriate exception on DynamoDB failure.
+
+## Integration Tests
+
+1. Test full conversation lifecycle: create META, write MSG#, write FACT#, read all.
+2. Test Query with begins_with MSG# returns only messages.
+3. Test Query with begins_with FACT# returns only facts.
+4. Test GetItem on non-existent conversation returns null.
+5. Test concurrent writes to same conversation do not corrupt state.
+6. Test DynamoDB local setup matches production table schema.

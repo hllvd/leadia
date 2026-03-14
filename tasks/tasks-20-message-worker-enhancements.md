@@ -27,3 +27,23 @@
 16. Test worker behavior with cache miss scenarios.
 17. Test worker behavior with LLM failures.
 18. Test worker behavior with NATS publish failures.
+
+---
+
+## Unit Tests
+
+1. Test worker exits on startup if NATS is unreachable.
+2. Test worker exits on startup if Redis is unreachable.
+3. Test buffer is retained when LLM call fails.
+4. Test NAK is sent for recoverable errors.
+5. Test structured log includes conversation_id, duration_ms, llm_called, cache_hit.
+6. Test all buffer threshold env vars override defaults correctly.
+
+## Integration Tests
+
+1. Test worker restarts automatically after crash (Docker restart policy).
+2. Test cache miss triggers DynamoDB load and caches result.
+3. Test LLM failure does not lose the message (NAK → redelivery).
+4. Test NATS publish failure triggers NAK and redelivery.
+5. Test cache hit rate metric is recorded correctly.
+6. Test LLM latency metric is recorded per call.

@@ -14,3 +14,21 @@
 10. Monitor GSI consumed capacity and throttling.
 11. Implement backfill strategy for existing data when adding new GSI.
 12. Document GSI maintenance and operational considerations.
+
+---
+
+## Unit Tests
+
+1. Test GSI query by broker_id returns correct conversations.
+2. Test GSI query by customer_id returns correct conversations.
+3. Test GSI query with pagination returns correct page size.
+4. Test GSI query with date range filter returns correct results.
+
+## Integration Tests
+
+1. Test GSI is populated when new conversation META is written.
+2. Test GSI query returns all conversations for a given broker_id.
+3. Test GSI query returns all conversations for a given customer_id.
+4. Test GSI pagination handles > 1000 results correctly.
+5. Test GSI query performance is < 50ms for typical result sets.
+6. Test backfill script populates GSI for existing items.

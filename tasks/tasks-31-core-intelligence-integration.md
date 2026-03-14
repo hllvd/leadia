@@ -72,3 +72,30 @@ This task file serves as the **"glue"** that integrates all scattered components
 3. Implement integration tests for complete flow scenarios.
 4. Test error recovery at each stage of the pipeline.
 5. Document the complete integration architecture.
+
+---
+
+## Unit Tests
+
+1. Test cache-aside: Redis hit returns state without DynamoDB call.
+2. Test cache-aside: Redis miss triggers DynamoDB load and caches result.
+3. Test cache-aside: DynamoDB failure propagates error correctly.
+4. Test deduplication check runs before buffer update or LLM trigger.
+5. Test LLM context includes summary + facts + buffer + new message.
+6. Test LLM response parser extracts facts with correct confidence values.
+7. Test fact merge: higher confidence overwrites, lower does not.
+8. Test persist.summary is only published when summary actually changes.
+9. Test persist.facts is only published when facts actually change.
+10. Test persist.message handler writes correct PK/SK pattern.
+11. Test persist.summary handler uses UpdateItem on META record.
+12. Test persist.facts handler writes one item per fact.
+
+## Integration Tests
+
+1. Test complete flow: webhook → NATS → worker → LLM → persist.* → DynamoDB.
+2. Test cache-aside under load: state is consistent across 100 sequential messages.
+3. Test deduplication prevents double-processing under rapid retries.
+4. Test LLM failure at any stage does not corrupt conversation state.
+5. Test all persist.* events are written to DynamoDB correctly after LLM trigger.
+6. Test distributed trace spans entire pipeline for a single message.
+7. Test error recovery: system resumes correctly after each component failure.

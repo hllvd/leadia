@@ -16,3 +16,21 @@
 12. Document NATS CLI commands for debugging and monitoring.
 13. Create alerting rules for critical NATS metrics.
 14. Test monitoring with simulated failure scenarios.
+
+---
+
+## Unit Tests
+
+1. Test health check returns healthy when NATS /healthz responds 200.
+2. Test health check returns unhealthy when NATS is unreachable.
+3. Test structured log entry includes all required fields.
+4. Test alert threshold values are correctly configured.
+
+## Integration Tests
+
+1. Test pending message alert fires when consumer backlog > 1000.
+2. Test dead-letter alert fires immediately when count > 0.
+3. Test storage alert fires when JetStream usage > 80%.
+4. Test monitoring dashboard shows correct stream and consumer metrics.
+5. Test NATS disconnection event is logged and alerted.
+6. Test metrics are collected correctly under high message throughput.
