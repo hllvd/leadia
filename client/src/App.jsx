@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import Bots from './pages/Bots'
 import ChatTest from './pages/ChatTest'
+import ChatLab from './pages/ChatLab'
 import AgenciesList from './pages/Agencies/AgenciesList'
 import BrokerDataAdmin from './pages/BrokerData'
 import './index.css'
@@ -23,6 +24,7 @@ function Sidebar() {
     { to: '/users', icon: '👥', label: 'Clientes' },
     { to: '/bots', icon: '🤖', label: 'Bots' },
     { to: '/chat', icon: '💬', label: 'Testar Bot' },
+    { to: '/chat-lab', icon: '🧪', label: 'Chat Lab' },
     { to: '/agencies', icon: '🏢', label: 'Imobiliárias' },
     { to: '/broker-data', icon: '📇', label: 'Dados Corretores' },
   ]
@@ -60,6 +62,7 @@ export default function App() {
         <Route path="/users" element={<ProtectedRoute><AppLayout><Users /></AppLayout></ProtectedRoute>} />
         <Route path="/bots" element={<ProtectedRoute><AppLayout><Bots /></AppLayout></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><AppLayout><ChatTest /></AppLayout></ProtectedRoute>} />
+        <Route path="/chat-lab" element={<ProtectedRoute><AppLayout><ChatLab /></AppLayout></ProtectedRoute>} />
         <Route path="/agencies" element={<ProtectedRoute><AppLayout><AgenciesList /></AppLayout></ProtectedRoute>} />
         <Route path="/broker-data" element={<ProtectedRoute><AppLayout><BrokerDataAdmin /></AppLayout></ProtectedRoute>} />
         <Route path="*" element={<Navigate to={isAuth() ? '/dashboard' : '/login'} replace />} />

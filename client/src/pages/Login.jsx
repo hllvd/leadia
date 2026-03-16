@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { login } from '../services/api'
 
 export default function Login() {
-  const [email, setEmail] = useState('superadmin@test.com')
+  const [email, setEmail] = useState('admin@example.com')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -38,7 +38,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="superadmin@test.com"
+              placeholder="admin@example.com"
               required
             />
           </div>

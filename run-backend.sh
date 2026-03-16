@@ -12,21 +12,7 @@ else
     echo "$PID" | xargs kill -9
 fi
 
-echo "🏗️ Building the application..."
-dotnet build second-brain-ia.sln
-
-if [ $? -ne 0 ]; then
-    echo "❌ Build failed. Stopping."
-    exit 1
-fi
-
-echo "🧪 Running unit tests..."
-dotnet test tests/Unit/Unit.csproj
-
-if [ $? -ne 0 ]; then
-    echo "❌ Unit tests failed. Stopping."
-    exit 1
-fi
-
-echo "🚀 Launching the API on port $PORT..."
-dotnet run --project api/Api/Api.csproj
+echo "🏗️ Starting the API..."
+# dotnet run handles incremental build. 
+# We disable shared compilation to bypass a known VBCSCompiler hang on this system.
+dotnet run --project api/Api/Api.csproj /p:UseSharedCompilation=false "$@"

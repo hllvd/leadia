@@ -6,7 +6,7 @@
   },
   "Database": {
     "Provider": "sqlite",
-    "ConnectionString": "Data Source=/data/contazap.db"
+    "ConnectionString": "Data Source=secondbrain.db"
   },
   "Jwt": {
     "SecretKey": "7FYShFW2Y3d/2+9QQVa9edGS2rwNcRUHTA8C+7FdfG0=",
@@ -39,9 +39,9 @@
     }
   },
   "LLM": {
-    "ApiKey": "YOUR_API_KEY",
-    "Model": "mistral-large-latest",
-    "BaseUrl": "https://api.mistral.ai/v1/",
+    "ApiKey": "sk-2ee96dd8780646ad99fb57db5f5c69f1",
+    "Model": "deepseek-chat",
+    "BaseUrl": "https://api.deepseek.com/v1/",
     "TimeoutSeconds": 10
   }
 }

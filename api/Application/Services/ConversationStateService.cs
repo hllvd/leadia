@@ -140,4 +140,17 @@ public class ConversationStateService(
         await persistencePublisher.PublishSummaryAsync(conversationId, llmResponse.Summary, state.LastMessageHash, ct);
         await persistencePublisher.PublishFactsAsync(conversationId, merged, ct);
     }
+
+    /// <summary>Returns current facts for a conversation.</summary>
+    public async Task<IReadOnlyList<ConversationFact>> GetFactsAsync(
+        string conversationId, CancellationToken ct = default)
+        => await repository.GetFactsAsync(conversationId, ct);
+
+    /// <summary>Returns current rolling summary for a conversation.</summary>
+    public async Task<string> GetSummaryAsync(
+        string conversationId, CancellationToken ct = default)
+    {
+        var state = await repository.GetByIdAsync(conversationId, ct);
+        return state?.RollingSummary ?? string.Empty;
+    }
 }

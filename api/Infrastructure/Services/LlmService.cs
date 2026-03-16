@@ -75,8 +75,60 @@ public class LlmService : ILlmService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "LLM analysis failed for context: {Context}", context);
+            _logger.LogError(ex, "LLM analysis failed. URL: {Url}", $"{baseUrl.TrimEnd('/')}/chat/completions");
             return null; // Graceful failure as per LLM.md §9
+        }
+    }
+
+    public async Task<string?> ChatAsync(string systemPrompt, string userMessage, CancellationToken ct = default)
+    {
+        var apiKey  = _config["LLM:ApiKey"];
+        var model   = _config["LLM:Model"] ?? "gpt-4o";
+        var baseUrl = _config["LLM:BaseUrl"] ?? "https://api.openai.com/v1/";
+
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            _logger.LogWarning("LLM ApiKey is missing. Skipping chat.");
+            return null;
+        }
+
+        var requestBody = new
+        {
+            model    = model,
+            messages = new[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user",   content = userMessage }
+            },
+            temperature = 0.7
+        };
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/chat/completions");
+            request.Headers.Add("Authorization", $"Bearer {apiKey}");
+            request.Content = JsonContent.Create(requestBody);
+
+            var response = await _httpClient.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("LLM chat failed with status {Status}. Body: {Body}", response.StatusCode, errorBody);
+                return null;
+            }
+
+            var result  = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+            var content = result.GetProperty("choices")[0]
+                               .GetProperty("message")
+                               .GetProperty("content")
+                               .GetString();
+
+            return content;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LLM chat failed. URL: {Url}", $"{baseUrl.TrimEnd('/')}/chat/completions");
+            return null;
         }
     }
 

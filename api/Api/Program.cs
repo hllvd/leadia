@@ -19,51 +19,60 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("config.json", optional: false, reloadOnChange: true);
 var config = builder.Configuration;
 
-// ── Shared Infrastructure (External) ───────────────────────────────────────
-var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
-builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
+bool isLocal = args.Contains("--local")
+            || Environment.GetEnvironmentVariable("LOCAL_PROTOTYPE") == "true";
+bool isTest  = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("INTEGRATION_TEST"));
 
-var dynamoDbEndpoint = Environment.GetEnvironmentVariable("DYNAMODB_ENDPOINT");
-builder.Services.AddSingleton<IAmazonDynamoDB>(sp => 
+if (isLocal)
 {
-    var config = new AmazonDynamoDBConfig();
-    if (!string.IsNullOrEmpty(dynamoDbEndpoint))
-    {
-        config.ServiceURL = dynamoDbEndpoint;
-    }
-    return new AmazonDynamoDBClient(config);
-});
+    // ── Local prototype: in-memory conversation state, no NATS / DynamoDB ──
+    builder.Services.AddSingleton<IConversationStateRepository, InMemoryConversationStateRepository>();
+    builder.Services.AddSingleton<IMessagePublisher, NoOpPublisher>();
+    builder.Services.AddSingleton<IPersistenceEventPublisher, NoOpPublisher>();
 
-// ── Database (EF Core) ──────────────────────────────────────────────────────
-// Skip real DB if running in integration tests
-bool isTest = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("INTEGRATION_TEST"));
-
-if (!isTest)
-{
-    var connectionString = config["Database:ConnectionString"] ?? "Data Source=contazap.db";
+    // Reuse existing SQLite file for EF Core (Bot/User entities used by other endpoints)
+    var localDb = config["Database:ConnectionString"] ?? "Data Source=secondbrain.db";
     builder.Services.AddDbContext<AppDbContext>(options =>
     {
-        options.UseSqlite(connectionString);
-        // Suppress pending model changes warning since we are managing migrations manually in this constrained environment
+        options.UseSqlite(localDb);
         options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
 }
 else
 {
-    // In-Memory DB for tests if needed (or let factory do it)
-    // Here we let the factory do it to avoid double-processing
+    // ── Production wiring ──────────────────────────────────────────────────
+    var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
+    builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
+
+    var dynamoDbEndpoint = Environment.GetEnvironmentVariable("DYNAMODB_ENDPOINT");
+    builder.Services.AddSingleton<IAmazonDynamoDB>(sp =>
+    {
+        var cfg = new AmazonDynamoDBConfig();
+        if (!string.IsNullOrEmpty(dynamoDbEndpoint))
+            cfg.ServiceURL = dynamoDbEndpoint;
+        return new AmazonDynamoDBClient(cfg);
+    });
+
+    if (!isTest)
+    {
+        var connectionString = config["Database:ConnectionString"] ?? "Data Source=contazap.db";
+        builder.Services.AddDbContext<AppDbContext>(options =>
+        {
+            options.UseSqlite(connectionString);
+            options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        });
+    }
+
+    builder.Services.AddScoped<IConversationStateRepository, DynamoDbConversationStateRepository>();
+    builder.Services.AddScoped<IMessagePublisher, NatsPublisher>();
+    builder.Services.AddScoped<IPersistenceEventPublisher, NatsPublisher>();
 }
 
-// ── Repositories & Publishers ──────────────────────────────────────────────
+// ── Repositories (shared) ──────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IBotRepository, BotRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<IRealStateRepository, RealStateRepository>();
-
-// Move conversation state to DynamoDB
-builder.Services.AddScoped<IConversationStateRepository, DynamoDbConversationStateRepository>();
-builder.Services.AddScoped<IMessagePublisher, NatsPublisher>();
-builder.Services.AddScoped<IPersistenceEventPublisher, NatsPublisher>();
 
 // ── LLM Service ─────────────────────────────────────────────────────────────
 builder.Services.AddHttpClient<ILlmService, LlmService>();
@@ -137,6 +146,7 @@ app.MapBotEndpoints();
 app.MapWebhookEndpoints(config);
 app.MapRealStateEndpoints();
 app.MapTestEndpoints();
+if (isLocal) app.MapChatEndpoints();
 
 app.Run();
 
@@ -144,7 +154,8 @@ app.Run();
 static async Task SeedSuperAdmin(AppDbContext db, IConfiguration config)
 {
     var email = config["SuperAdmin:Email"] ?? "superadmin@test.com";
-    if (await db.Users.AnyAsync(u => u.Email == email)) return;
+    var whatsapp = "+5500000000000";
+    if (await db.Users.AnyAsync(u => u.Email == email || u.WhatsAppNumber == whatsapp)) return;
 
     var password = config["SuperAdmin:Password"] ?? "string";
     db.Users.Add(new User
