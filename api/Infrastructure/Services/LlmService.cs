@@ -66,8 +66,18 @@ public class LlmService : ILlmService
             var choice = result.GetProperty("choices")[0];
             var message = choice.GetProperty("message");
             var content = message.GetProperty("content").GetString();
+            
+            Console.WriteLine($"[DEBUG] LLM Raw Response: {content}");
 
             if (string.IsNullOrEmpty(content)) return null;
+
+            // Handle potential markdown backticks from LLM
+            if (content.Contains("```"))
+            {
+                var lines = content.Split('\n');
+                var cleaned = string.Join("\n", lines.Where(l => !l.Trim().StartsWith("```")));
+                content = cleaned.Trim();
+            }
 
             return JsonSerializer.Deserialize<LlmResponse>(content, new JsonSerializerOptions
             {
@@ -138,17 +148,28 @@ public class LlmService : ILlmService
         try
         {
             var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "prompts", PromptNames.AnalysisSystem);
-            if (!File.Exists(path))
-            {
-                // Fallback for development if base directory is different
-                path = Path.Combine(Directory.GetCurrentDirectory(), "prompts", PromptNames.AnalysisSystem);
-            }
-            return File.ReadAllText(path);
+            if (File.Exists(path)) return File.ReadAllText(path);
+
+            return """
+                You are an assistant analyzing WhatsApp conversations between real estate brokers and leads.
+                Your tasks:
+                1. Extract or update structured facts from the latest messages.
+                2. Generate an updated one-paragraph summary of the conversation so far.
+                Rules:
+                - Response in JSON format only with keys: "summary" and "facts" (object/dictionary).
+                """;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load analysis system prompt from file. Using hardcoded fallback.");
-            return "You are an assistant analyzing WhatsApp conversations between real estate brokers and leads.";
+            return """
+                You are an assistant analyzing WhatsApp conversations between real estate brokers and leads.
+                Your tasks:
+                1. Extract or update structured facts from the latest messages.
+                2. Generate an updated one-paragraph summary of the conversation so far.
+                Rules:
+                - Response in JSON format only with keys: "summary" and "facts" (object/dictionary).
+                """;
         }
     }
 }

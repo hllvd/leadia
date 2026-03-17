@@ -146,11 +146,21 @@ public class ConversationStateService(
         // Convert LlmResponse.Facts to FactUpdates + Filter by confidence >= 0.5
         var factUpdates = llmResponse.Facts
             .Select(kvp => new FactUpdate(kvp.Key, kvp.Value.Value?.ToString() ?? string.Empty, kvp.Value.Confidence))
-            .Where(f => f.Confidence >= 0.5) // Graceful threshold from LLM.md §9
             .ToList();
 
+        Console.WriteLine($"[DEBUG] LLM identified {factUpdates.Count} facts.");
+        foreach (var f in factUpdates)
+        {
+            Console.WriteLine($"[DEBUG] Fact: {f.Name} = {f.Value} (Conf: {f.Confidence})");
+        }
+
+        var filtered = factUpdates.Where(f => f.Confidence >= 0.5).ToList();
+        Console.WriteLine($"[DEBUG] {filtered.Count} facts passed confidence threshold (0.5).");
+
         var existing = await repository.GetFactsAsync(conversationId, ct);
-        var merged   = FactMerger.Merge(existing, factUpdates, conversationId);
+        var merged   = FactMerger.Merge(existing, filtered, conversationId);
+        
+        Console.WriteLine($"[DEBUG] Merged result: {merged.Count} facts total.");
         await repository.UpsertFactsAsync(conversationId, merged, ct);
 
         // ── 2. Publish persistence events ────────────────────────────────────

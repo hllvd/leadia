@@ -1,40 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const API_URL = '' // Use Vite proxy
-
-const ALL_FACTS = [
-  'intent',
-  'property_type',
-  'location',
-  'budget',
-  'price_range_min',
-  'price_range_max',
-  'bedrooms',
-  'garage_required',
-  'financing_preapproved',
-  'purpose',
-  'purchase_timeline',
-  'visit_interest',
-  'mentioned_property_id',
-  'lead_score',
-]
-
-const FACT_LABELS = {
-  intent: 'Intenção',
-  property_type: 'Tipo de imóvel',
-  location: 'Localização',
-  budget: 'Orçamento',
-  price_range_min: 'Preço mínimo',
-  price_range_max: 'Preço máximo',
-  bedrooms: 'Quartos',
-  garage_required: 'Garagem',
-  financing_preapproved: 'Financiamento aprovado',
-  purpose: 'Finalidade',
-  purchase_timeline: 'Prazo de compra',
-  visit_interest: 'Interesse em visita',
-  mentioned_property_id: 'Imóvel mencionado',
-  lead_score: 'Lead Score',
-}
 
 async function sendMessage(from, message, type = 'customer') {
   const res = await fetch(`/api/chat`, {
@@ -147,9 +113,9 @@ function ChatWindow({ title, color, messages, input, setInput, onSend, loading, 
   )
 }
 
-function FactsPanel({ facts, summary }) {
-  const detected = ALL_FACTS.filter(k => facts[k] !== undefined)
-  const missing  = ALL_FACTS.filter(k => facts[k] === undefined)
+function FactsPanel({ facts, summary, allFacts, factLabels }) {
+  const detected = allFacts.filter(k => facts[k] !== undefined)
+  const missing  = allFacts.filter(k => facts[k] === undefined)
 
   return (
     <div style={{
@@ -180,7 +146,7 @@ function FactsPanel({ facts, summary }) {
             {detected.map(k => (
               <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span style={{ fontSize: '0.72rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {FACT_LABELS[k] ?? k}
+                  {factLabels[k] ?? k}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500 }}>
@@ -216,7 +182,7 @@ function FactsPanel({ facts, summary }) {
               borderRadius: 6,
               background: 'var(--surface2)',
             }}>
-              {FACT_LABELS[k] ?? k}
+              {factLabels[k] ?? k}
             </div>
           ))}
         </div>
@@ -231,11 +197,23 @@ export default function ChatLab() {
   const [messages, setMessages] = useState([])
   const [facts, setFacts]       = useState({})
   const [summary, setSummary]   = useState('')
+  const [allFacts, setAllFacts] = useState([])
+  const [factLabels, setFactLabels] = useState({})
 
   const [customerInput, setCustomerInput] = useState('')
   const [brokerInput, setBrokerInput]     = useState('')
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [loadingBroker, setBrokerLoading]     = useState(false)
+
+  useEffect(() => {
+    fetch('/api/chat/fact-metadata')
+      .then(res => res.json())
+      .then(data => {
+        setAllFacts(data.keys || [])
+        setFactLabels(data.labels || {})
+      })
+      .catch(err => console.error('Erro ao buscar metadados de fatos', err))
+  }, [])
 
   const push = (sender, text) =>
     setMessages(prev => [...prev, { sender, text }])
@@ -316,7 +294,7 @@ export default function ChatLab() {
           loading={loadingBroker}
           side="broker"
         />
-        <FactsPanel facts={facts} summary={summary} />
+        <FactsPanel facts={facts} summary={summary} allFacts={allFacts} factLabels={factLabels} />
       </div>
     </div>
   )

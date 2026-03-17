@@ -13,11 +13,9 @@ public static class ChatEndpoints
         try
         {
             var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "prompts", PromptNames.BrokerSystem);
-            if (!File.Exists(path))
-            {
-                path = Path.Combine(Directory.GetCurrentDirectory(), "prompts", PromptNames.BrokerSystem);
-            }
-            return File.ReadAllText(path);
+            if (File.Exists(path)) return File.ReadAllText(path);
+
+            return "You are a professional real estate broker assistant.";
         }
         catch
         {
@@ -155,6 +153,15 @@ public static class ChatEndpoints
                 reply,
                 summary,
                 facts = facts.Select(f => new { name = f.FactName, value = f.Value, confidence = f.Confidence })
+            });
+        });
+
+        app.MapGet("/api/chat/fact-metadata", () =>
+        {
+            return Results.Ok(new
+            {
+                keys = FactKeys.All,
+                labels = FactKeys.Labels
             });
         });
 

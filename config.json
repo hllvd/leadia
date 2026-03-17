@@ -42,6 +42,6 @@
     "ApiKey": "sk-2ee96dd8780646ad99fb57db5f5c69f1",
     "Model": "deepseek-chat",
     "BaseUrl": "https://api.deepseek.com/v1/",
-    "TimeoutSeconds": 10
+    "TimeoutSeconds": 60
   }
 }
