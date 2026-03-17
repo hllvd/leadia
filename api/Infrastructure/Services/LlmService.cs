@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Application.DTOs;
 using Application.Interfaces;
+using Domain.Constants;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -132,20 +133,22 @@ public class LlmService : ILlmService
         }
     }
 
-    private static string GetSystemPrompt() =>
-        """
-        You are an assistant analyzing WhatsApp conversations between real estate brokers and leads.
-
-        Your tasks:
-        1. Extract or update structured facts from the latest messages.
-        2. Generate an updated one-paragraph summary of the conversation so far.
-
-        Rules:
-        - Only update facts that are clearly supported by the messages.
-        - Do not invent or assume facts not mentioned.
-        - Preserve existing facts if not contradicted.
-        - The summary must be concise (1-3 sentences).
-        - Respond in JSON format only with keys: "summary" and "facts".
-        - Each fact in "facts" must be an object: { "value": any, "confidence": number }.
-        """;
+    private string GetSystemPrompt()
+    {
+        try
+        {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "prompts", PromptNames.AnalysisSystem);
+            if (!File.Exists(path))
+            {
+                // Fallback for development if base directory is different
+                path = Path.Combine(Directory.GetCurrentDirectory(), "prompts", PromptNames.AnalysisSystem);
+            }
+            return File.ReadAllText(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load analysis system prompt from file. Using hardcoded fallback.");
+            return "You are an assistant analyzing WhatsApp conversations between real estate brokers and leads.";
+        }
+    }
 }

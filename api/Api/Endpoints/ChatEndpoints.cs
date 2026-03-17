@@ -1,23 +1,29 @@
 using Application.Interfaces;
 using Application.Services;
 using Domain.Enums;
+using Domain.Constants;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
 
 public static class ChatEndpoints
 {
-    private const string BrokerSystemPrompt =
-        """
-        You are a professional real estate broker assistant chatting with a potential client on WhatsApp.
-
-        Rules:
-        - Be friendly, concise, and helpful.
-        - Ask ONE clarifying question at a time to qualify the lead.
-        - Never make up property listings or prices.
-        - Respond in the same language the customer uses.
-        - Reply with plain conversational text only — no JSON, no markdown, no bullet points.
-        """;
+    private static string GetBrokerSystemPrompt()
+    {
+        try
+        {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "prompts", PromptNames.BrokerSystem);
+            if (!File.Exists(path))
+            {
+                path = Path.Combine(Directory.GetCurrentDirectory(), "prompts", PromptNames.BrokerSystem);
+            }
+            return File.ReadAllText(path);
+        }
+        catch
+        {
+            return "You are a professional real estate broker assistant.";
+        }
+    }
 
     // Scripted conversation — 8 turns that exercise the full pipeline
     private static readonly (string From, string Message)[] ExampleConversation =
@@ -69,7 +75,7 @@ public static class ChatEndpoints
                     ? $"{result.LlmContext}\n\nNow write your reply to the customer:"
                     : text;
 
-                var reply = await llmService.ChatAsync(BrokerSystemPrompt, userMessage, ct)
+                var reply = await llmService.ChatAsync(GetBrokerSystemPrompt(), userMessage, ct)
                             ?? "...";
 
                 turns.Add(new
@@ -132,7 +138,7 @@ public static class ChatEndpoints
                     ? $"{result.LlmContext}\n\nNow write your reply to the customer:"
                     : text;
 
-                reply = await llmService.ChatAsync(BrokerSystemPrompt, userMessage, ct)
+                reply = await llmService.ChatAsync(GetBrokerSystemPrompt(), userMessage, ct)
                             ?? "I'm sorry, I couldn't process your message right now. Please try again.";
             }
             else if (senderType == SenderType.Customer && result.UpdatedState.Mode == ConversationMode.OnlyListening)
