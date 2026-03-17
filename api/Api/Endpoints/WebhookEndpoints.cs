@@ -1,6 +1,7 @@
 using Application.DTOs;
 using Application.Interfaces;
 using Application.Services;
+using Domain.Enums;
 
 namespace Api.Endpoints;
 
@@ -58,7 +59,7 @@ public static class WebhookEndpoints
                 ConversationId: conversationId,
                 BrokerId:       bot.Id,
                 CustomerId:     dto.From,
-                SenderType:     "customer",
+                SenderType:     SenderType.Customer,
                 Text:           normalizedText,
                 Timestamp:      timestamp,
                 MessageHash:    messageHash);

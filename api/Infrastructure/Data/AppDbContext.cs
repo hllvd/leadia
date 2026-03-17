@@ -56,6 +56,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.HasIndex(e => e.Timestamp);
             b.Property(e => e.Timestamp).HasConversion(
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.Property(e => e.Sender).HasConversion<string>();
             b.HasOne(e => e.User)
              .WithMany(u => u.Messages)
              .HasForeignKey(e => e.UserId)
@@ -76,6 +77,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
             b.Property(e => e.CreatedAt).HasConversion(
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.Property(e => e.Mode).HasConversion<int>();
             b.HasMany(e => e.Facts)
              .WithOne(f => f.Conversation)
              .HasForeignKey(f => f.ConversationId)
@@ -109,6 +111,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany()
              .HasForeignKey(e => e.BrokerId)
              .OnDelete(DeleteBehavior.Restrict);
+            b.Property(e => e.Mode).HasConversion<int>();
         });
 
         // ── BrokerData ──

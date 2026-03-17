@@ -1,6 +1,7 @@
 using Application.DTOs;
 using Application.Interfaces;
 using Application.Services;
+using Domain.Enums;
 
 namespace Api.Endpoints;
 
@@ -31,7 +32,7 @@ public static class TestEndpoints
                 return Results.NotFound(new { error = $"User with WhatsApp '{dto.UserWhatsApp}' not found." });
 
             // Store test message
-            await messageService.StoreAsync(user.Id, bot.Id, "user", dto.Message);
+            await messageService.StoreAsync(user.Id, bot.Id, SenderType.Customer, dto.Message);
 
             // Process message (Placeholder for direct AI agent invocation)
             string reply = "🤖 [Agent Placeholder] Hello! I am processing your message directly.";
@@ -46,7 +47,7 @@ public static class TestEndpoints
             }
 
             // Store reply
-            await messageService.StoreAsync(user.Id, bot.Id, "bot", reply);
+            await messageService.StoreAsync(user.Id, bot.Id, SenderType.Broker, reply);
 
             return Results.Ok(new ChatResponseDto(reply, bot.BotName));
         }).RequireAuthorization("AdminOnly");

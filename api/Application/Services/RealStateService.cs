@@ -1,5 +1,6 @@
 using Application.Interfaces;
 using Domain.Entities;
+using Domain.Enums;
 
 namespace Application.Services;
 
@@ -106,4 +107,10 @@ public class RealStateService(IRealStateRepository repository)
         await repository.DeleteBrokerDataAsync(id);
         return true;
     }
+
+    public async Task<RealStateBroker?> GetAssignmentByBrokerIdAsync(string brokerId)
+        => await repository.GetAssignmentsByBrokerIdAsync(brokerId);
+
+    public async Task UpdateAssignmentAsync(RealStateBroker assignment)
+        => await repository.UpdateAssignmentAsync(assignment);
 }

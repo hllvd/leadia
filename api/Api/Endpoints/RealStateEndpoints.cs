@@ -1,5 +1,6 @@
 using Application.Services;
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
@@ -76,6 +77,14 @@ public static class RealStateEndpoints
         {
             var success = await service.DeleteBrokerDataAsync(id);
             return success ? TypedResults.NoContent() : Results.NotFound();
+        });
+        group.MapPut("/brokers/{brokerId}/mode", async (string brokerId, [FromBody] ConversationMode mode, RealStateService service) =>
+        {
+            var assignment = await service.GetAssignmentByBrokerIdAsync(brokerId);
+            if (assignment is null) return Results.NotFound();
+            assignment.Mode = mode;
+            await service.UpdateAssignmentAsync(assignment);
+            return TypedResults.NoContent();
         });
     }
 }

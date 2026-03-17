@@ -14,6 +14,8 @@ public interface IRealStateRepository
     // Assignments
     Task AddAssignmentAsync(RealStateBroker assignment, CancellationToken ct = default);
     Task DeleteAssignmentAsync(string id, CancellationToken ct = default);
+    Task<RealStateBroker?> GetAssignmentsByBrokerIdAsync(string brokerId, CancellationToken ct = default);
+    Task UpdateAssignmentAsync(RealStateBroker assignment, CancellationToken ct = default);
 
     // Broker Data
     Task<List<BrokerData>> GetBrokerDataAsync(string brokerId, CancellationToken ct = default);

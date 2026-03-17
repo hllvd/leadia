@@ -2,6 +2,7 @@ using System.Text.Json;
 using Application.Interfaces;
 using Application.DTOs;
 using Domain.Entities;
+using Domain.Enums;
 
 namespace Application.Services;
 
@@ -13,7 +14,7 @@ public record NormalizedMessage(
     string ConversationId,
     string BrokerId,
     string CustomerId,
-    string SenderType,       // "broker" | "customer"
+    SenderType SenderType,
     string Text,
     DateTimeOffset Timestamp,
     string MessageHash);
@@ -33,6 +34,7 @@ public record ProcessResult(
 /// </summary>
 public class ConversationStateService(
     IConversationStateRepository repository,
+    IRealStateRepository realStateRepository,
     IPersistenceEventPublisher persistencePublisher)
 {
     /// <summary>
@@ -50,13 +52,28 @@ public class ConversationStateService(
         CancellationToken ct = default)
     {
         // ── 1. Load or initialise state ─────────────────────────────────────
-        var state = await repository.GetByIdAsync(msg.ConversationId, ct)
-                    ?? new ConversationState
-                    {
-                        ConversationId = msg.ConversationId,
-                        BrokerId       = msg.BrokerId,
-                        CustomerId     = msg.CustomerId,
-                    };
+        var state = await repository.GetByIdAsync(msg.ConversationId, ct);
+        
+        if (state is null)
+        {
+            var broker = await realStateRepository.GetBrokerDataAsync(msg.BrokerId); // This returns List<BrokerData>, I need the assignment or broker entity
+            // Wait, I should check how to get the RealStateBroker entity which has the Mode.
+            // Actually, looking at RealStateService, AssignBrokerAsync returns RealStateBroker.
+            // I need a way to get the RealStateBroker by brokerId.
+            
+            state = new ConversationState
+            {
+                ConversationId = msg.ConversationId,
+                BrokerId       = msg.BrokerId,
+                CustomerId     = msg.CustomerId,
+            };
+
+            var brokerAssignment = await realStateRepository.GetAssignmentsByBrokerIdAsync(msg.BrokerId, ct);
+            if (brokerAssignment != null)
+            {
+                state.Mode = brokerAssignment.Mode;
+            }
+        }
 
         // ── 2. Deduplication ─────────────────────────────────────────────────
         if (state.LastMessageHash == msg.MessageHash)

@@ -1,5 +1,7 @@
 using Application.Interfaces;
 using Application.Services;
+using Domain.Enums;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Endpoints;
 
@@ -48,7 +50,7 @@ public static class ChatEndpoints
                     ConversationId: MessageNormalizer.BuildConversationId("local-broker", from),
                     BrokerId:       "local-broker",
                     CustomerId:     from,
-                    SenderType:     "customer",
+                    SenderType:     SenderType.Customer,
                     Text:           text,
                     Timestamp:      timestamp,
                     MessageHash:    MessageNormalizer.ComputeHash(timestamp.ToString("O"), "local-broker", from, text));
@@ -93,7 +95,7 @@ public static class ChatEndpoints
             if (string.IsNullOrWhiteSpace(req.From) || string.IsNullOrWhiteSpace(req.Message))
                 return Results.BadRequest(new { error = "Fields 'from' and 'message' are required." });
 
-            var senderType = req.Type?.ToLower() == "broker" ? "broker" : "customer";
+            var senderType = req.Type?.ToLower() == "broker" ? SenderType.Broker : SenderType.Customer;
             var timestamp = DateTimeOffset.UtcNow;
             var text      = MessageNormalizer.Normalize(req.Message);
 
@@ -122,8 +124,8 @@ public static class ChatEndpoints
 
             string? reply = null;
 
-            // Only generate an AI reply if the customer sent the message
-            if (senderType == "customer")
+            // Only generate an AI reply if the customer sent the message and the chat is in Agent mode
+            if (senderType == SenderType.Customer && result.UpdatedState.Mode == ConversationMode.AgentAndListening)
             {
                 // Build user message for the broker reply: include context when available
                 var userMessage = result.LlmContext is not null
@@ -132,6 +134,10 @@ public static class ChatEndpoints
 
                 reply = await llmService.ChatAsync(BrokerSystemPrompt, userMessage, ct)
                             ?? "I'm sorry, I couldn't process your message right now. Please try again.";
+            }
+            else if (senderType == SenderType.Customer && result.UpdatedState.Mode == ConversationMode.OnlyListening)
+            {
+                reply = null; // No AI reply in OnlyListening mode
             }
 
             // Load updated facts + summary to return to the caller
@@ -145,6 +151,8 @@ public static class ChatEndpoints
                 facts = facts.Select(f => new { name = f.FactName, value = f.Value, confidence = f.Confidence })
             });
         });
+
+
     }
 
     private record ChatRequest(string From, string Message, string? Type);

@@ -1,3 +1,5 @@
+using Domain.Enums;
+
 namespace Domain.Entities;
 
 /// <summary>
@@ -9,6 +11,7 @@ public class ConversationState
     public string ConversationId { get; set; } = string.Empty;  // PK: "<broker>-<customer>"
     public string BrokerId       { get; set; } = string.Empty;
     public string CustomerId     { get; set; } = string.Empty;
+    public ConversationMode Mode { get; set; } = ConversationMode.OnlyListening;
 
     public string RollingSummary        { get; set; } = string.Empty;
     public string BufferJson            { get; set; } = "[]";   // JSON array of strings

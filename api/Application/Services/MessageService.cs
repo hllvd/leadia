@@ -1,13 +1,14 @@
 using Application.DTOs;
 using Application.Interfaces;
 using Domain.Entities;
+using Domain.Enums;
 
 namespace Application.Services;
 
 public class MessageService(IMessageRepository messageRepository)
 {
     public async Task<Message> StoreAsync(
-        string userId, string botId, string sender, string content, CancellationToken ct = default)
+        string userId, string botId, SenderType sender, string content, CancellationToken ct = default)
     {
         var message = new Message
         {

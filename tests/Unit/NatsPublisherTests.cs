@@ -1,6 +1,7 @@
 using Application.Interfaces;
 using Application.Services;
 using Domain.Entities;
+using Domain.Enums;
 using Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Moq;
@@ -29,7 +30,7 @@ public class NatsPublisherTests
     public async Task PublishAsync_SendsCorrectSubject()
     {
         // Arrange
-        var msg = new NormalizedMessage("conv1", "b1", "c1", "customer", "hi", DateTimeOffset.UtcNow, "hash1");
+        var msg = new NormalizedMessage("conv1", "b1", "c1", SenderType.Customer, "hi", DateTimeOffset.UtcNow, "hash1");
 
         // Act
         await _publisher.PublishAsync(msg);

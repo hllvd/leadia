@@ -68,6 +68,21 @@ public class RealStateRepository(AppDbContext db) : IRealStateRepository
             await db.SaveChangesAsync(ct);
         }
     }
+    public async Task<RealStateBroker?> GetAssignmentsByBrokerIdAsync(string brokerId, CancellationToken ct = default)
+    {
+        return await db.RealStateBrokers
+            .FirstOrDefaultAsync(b => b.BrokerId == brokerId, ct);
+    }
+
+    public async Task UpdateAssignmentAsync(RealStateBroker assignment, CancellationToken ct = default)
+    {
+        var existing = await db.RealStateBrokers.FindAsync(new object[] { assignment.Id }, ct);
+        if (existing != null)
+        {
+            db.Entry(existing).CurrentValues.SetValues(assignment);
+            await db.SaveChangesAsync(ct);
+        }
+    }
 
     // ── Broker Data ────────────────────────────────────────────────────
 

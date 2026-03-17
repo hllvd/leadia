@@ -58,7 +58,7 @@ public record MessageDto(
     string Id,
     string UserId,
     string BotId,
-    string Sender,
+    SenderType Sender,
     string Content,
     DateTimeOffset Timestamp);
 
