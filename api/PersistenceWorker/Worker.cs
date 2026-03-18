@@ -66,8 +66,34 @@ public class Worker : BackgroundService
             try
             {
                 var eventData = msg.Data;
-                var type = eventData.GetProperty("type").GetString() ?? "";
-                var payload = eventData.GetProperty("payload");
+                
+                // If the message was received as a string (value kind String), parse it as a JSON object
+                if (eventData.ValueKind == JsonValueKind.String)
+                {
+                    var rawString = eventData.GetString();
+                    if (!string.IsNullOrEmpty(rawString))
+                    {
+                        using var doc = JsonDocument.Parse(rawString);
+                        eventData = doc.RootElement.Clone(); // Clone to keep the element alive after doc is disposed
+                    }
+                }
+
+                if (eventData.ValueKind != JsonValueKind.Object)
+                {
+                    _logger.LogWarning("Received non-object persistence event. ValueKind: {ValueKind}", eventData.ValueKind);
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
+                }
+
+                if (!eventData.TryGetProperty("type", out var typeElement))
+                {
+                    _logger.LogWarning("Persistence event missing 'type' property.");
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
+                }
+
+                var type = typeElement.GetString() ?? "";
+                var payload = eventData.TryGetProperty("payload", out var payloadElement) ? payloadElement : default;
 
                 _logger.LogInformation("Received persistence event: {Type}", type);
 

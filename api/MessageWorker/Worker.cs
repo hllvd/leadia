@@ -61,7 +61,33 @@ public class Worker : BackgroundService
             try
             {
                 var eventData = msg.Data;
-                var type = eventData.GetProperty("type").GetString();
+
+                // If the message was received as a string (value kind String), parse it as a JSON object
+                if (eventData.ValueKind == JsonValueKind.String)
+                {
+                    var rawString = eventData.GetString();
+                    if (!string.IsNullOrEmpty(rawString))
+                    {
+                        using var doc = JsonDocument.Parse(rawString);
+                        eventData = doc.RootElement.Clone();
+                    }
+                }
+
+                if (eventData.ValueKind != JsonValueKind.Object)
+                {
+                    _logger.LogWarning("Received non-object message event. ValueKind: {ValueKind}", eventData.ValueKind);
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
+                }
+
+                if (!eventData.TryGetProperty("type", out var typeElement))
+                {
+                    _logger.LogWarning("Message event missing 'type' property.");
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
+                }
+
+                var type = typeElement.GetString();
                 
                 if (type != Subject)
                 {
@@ -69,7 +95,14 @@ public class Worker : BackgroundService
                     continue;
                 }
 
-                var normalizedJson = eventData.GetProperty("payload").GetRawText();
+                if (!eventData.TryGetProperty("payload", out var payloadElement))
+                {
+                    _logger.LogWarning("Message event missing 'payload' property.");
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
+                }
+
+                var normalizedJson = payloadElement.GetRawText();
                 var normalized = JsonSerializer.Deserialize<NormalizedMessage>(normalizedJson, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
