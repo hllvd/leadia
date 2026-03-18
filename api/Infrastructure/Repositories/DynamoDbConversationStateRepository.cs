@@ -9,19 +9,24 @@ namespace Infrastructure.Repositories;
 
 /// <summary>
 /// Implementation of IConversationStateRepository using DynamoDB Single Table Design.
-/// Table: crm_memory
-/// PK = CONV#<id>
-/// SK = META | MSG#<ts> | FACT#<name>
+/// Table: imobos / crm_memory
+/// PrimaryKey = CONV#<id>
+/// SortKey = SUM# | LAST#<hash> | FACTS#<name>
 /// </summary>
 public class DynamoDbConversationStateRepository : IConversationStateRepository
 {
     private readonly IAmazonDynamoDB _db;
     private readonly string _tableName;
+    private readonly string _primaryKey;
+    private readonly string _sortKey;
 
     public DynamoDbConversationStateRepository(IAmazonDynamoDB db, IConfiguration config)
     {
         _db = db;
-        _tableName = config["DynamoDB:Table"] ?? "crm_memory";
+        bool isTest = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEST"));
+        _tableName = isTest ? "crm_memory" : (config["DynamoDB:Table"] ?? "imobos");
+        _primaryKey = config["DynamoDB:PrimaryKey"] ?? "PK";
+        _sortKey = config["DynamoDB:SortKey"] ?? "SK";
     }
 
     public async Task<ConversationState?> GetByIdAsync(string conversationId, CancellationToken ct = default)
@@ -31,8 +36,8 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             TableName = _tableName,
             Key = new Dictionary<string, AttributeValue>
             {
-                { "PK", new AttributeValue { S = $"CONV#{conversationId}" } },
-                { "SK", new AttributeValue { S = "META" } }
+                { _primaryKey, new AttributeValue { S = $"CONV#{conversationId}" } },
+                { _sortKey, new AttributeValue { S = "SUM#" } }
             }
         };
 
@@ -61,8 +66,8 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             TableName = _tableName,
             Item = new Dictionary<string, AttributeValue>
             {
-                { "PK", new AttributeValue { S = $"CONV#{state.ConversationId}" } },
-                { "SK", new AttributeValue { S = "META" } },
+                { _primaryKey, new AttributeValue { S = $"CONV#{state.ConversationId}" } },
+                { _sortKey, new AttributeValue { S = "SUM#" } },
                 { "rolling_summary", new AttributeValue { S = state.RollingSummary } },
                 { "last_hash", new AttributeValue { S = state.LastMessageHash } },
                 { "last_ts", new AttributeValue { S = state.LastMessageTimestamp.ToString("O") } },
@@ -82,11 +87,11 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
         var request = new QueryRequest
         {
             TableName = _tableName,
-            KeyConditionExpression = "PK = :pk AND begins_with(SK, :sk_prefix)",
+            KeyConditionExpression = $"{_primaryKey} = :pk AND begins_with({_sortKey}, :sk_prefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
                 { ":pk", new AttributeValue { S = $"CONV#{conversationId}" } },
-                { ":sk_prefix", new AttributeValue { S = "FACT#" } }
+                { ":sk_prefix", new AttributeValue { S = "FACTS#" } }
             }
         };
 
@@ -94,7 +99,7 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
         return response.Items.Select(item => new ConversationFact
         {
             ConversationId = conversationId,
-            FactName = item["SK"].S.Replace("FACT#", ""),
+            FactName = item[_sortKey].S.Replace("FACTS#", ""),
             Value = item["value"].S,
             Confidence = double.Parse(item["confidence"].N),
             UpdatedAt = DateTimeOffset.Parse(item["updated_at"].S)
@@ -110,8 +115,8 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
                 TableName = _tableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
-                    { "PK", new AttributeValue { S = $"CONV#{conversationId}" } },
-                    { "SK", new AttributeValue { S = $"FACT#{fact.FactName}" } },
+                    { _primaryKey, new AttributeValue { S = $"CONV#{conversationId}" } },
+                    { _sortKey, new AttributeValue { S = $"FACTS#{fact.FactName}" } },
                     { "value", new AttributeValue { S = fact.Value } },
                     { "confidence", new AttributeValue { N = fact.Confidence.ToString() } },
                     { "updated_at", new AttributeValue { S = fact.UpdatedAt.ToString("O") } }

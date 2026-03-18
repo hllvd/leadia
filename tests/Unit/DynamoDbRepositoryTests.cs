@@ -35,7 +35,7 @@ public class DynamoDbRepositoryTests
         _dbMock.Verify(x => x.GetItemAsync(It.Is<GetItemRequest>(r => 
             r.TableName == "test_table" && 
             r.Key["PK"].S == "CONV#123-456" && 
-            r.Key["SK"].S == "META"), default), Times.Once);
+            r.Key["SK"].S == "SUM#"), default), Times.Once);
     }
 
     [Fact]
@@ -53,6 +53,6 @@ public class DynamoDbRepositoryTests
         _dbMock.Verify(x => x.QueryAsync(It.Is<QueryRequest>(r => 
             r.KeyConditionExpression == "PK = :pk AND begins_with(SK, :sk_prefix)" && 
             r.ExpressionAttributeValues[":pk"].S == "CONV#123-456" && 
-            r.ExpressionAttributeValues[":sk_prefix"].S == "FACT#"), default), Times.Once);
+            r.ExpressionAttributeValues[":sk_prefix"].S == "FACTS#"), default), Times.Once);
     }
 }

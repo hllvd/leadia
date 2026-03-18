@@ -5,6 +5,7 @@ using Application.Interfaces;
 using Domain.Constants;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.IO;
 
 namespace Infrastructure.Services;
 
@@ -52,6 +53,12 @@ public class LlmService : ILlmService
             temperature     = 0.2,
             response_format = new { type = "json_object" }
         };
+
+        // Log the prompt to a file
+        if (Environment.GetEnvironmentVariable("DEBUG") == "true")
+        {
+            File.WriteAllText("/app/logs/llm_prompt.txt", JsonSerializer.Serialize(requestBody, new JsonSerializerOptions { WriteIndented = true }));
+        }
 
         try
         {

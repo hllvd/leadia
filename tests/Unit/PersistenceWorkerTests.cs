@@ -35,7 +35,7 @@ public class PersistenceWorkerTests
         _dbMock.Verify(x => x.PutItemAsync(It.Is<PutItemRequest>(r => 
             r.TableName == "crm_memory" &&
             r.Item["PK"].S == "CONV#c1" &&
-            r.Item["SK"].S == "MSG#2024-03-11T12:00:00Z" &&
+            r.Item["SK"].S == "LAST#h1" &&
             r.Item["text"].S == "hello" &&
             r.Item["hash"].S == "h1"
         ), default), Times.Once);
@@ -54,7 +54,7 @@ public class PersistenceWorkerTests
         _dbMock.Verify(x => x.UpdateItemAsync(It.Is<UpdateItemRequest>(r => 
             r.TableName == "crm_memory" &&
             r.Key["PK"].S == "CONV#c1" &&
-            r.Key["SK"].S == "META" &&
+            r.Key["SK"].S == "SUM#" &&
             r.AttributeUpdates["rolling_summary"].Value.S == "new summary"
         ), default), Times.Once);
     }
@@ -72,7 +72,7 @@ public class PersistenceWorkerTests
         _dbMock.Verify(x => x.PutItemAsync(It.Is<PutItemRequest>(r => 
             r.TableName == "crm_memory" &&
             r.Item["PK"].S == "CONV#c1" &&
-            r.Item["SK"].S == "FACT#f1" &&
+            r.Item["SK"].S == "FACTS#f1" &&
             r.Item["confidence"].N == "0.9"
         ), It.IsAny<CancellationToken>()), Times.Once);
     }

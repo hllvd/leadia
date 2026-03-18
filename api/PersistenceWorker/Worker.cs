@@ -20,6 +20,8 @@ public class Worker : BackgroundService
     private readonly INatsJSContext _js;
     private readonly IAmazonDynamoDB _db;
     private readonly string _tableName;
+    private readonly string _primaryKey;
+    private readonly string _sortKey;
 
     private const string StreamName = "persistence_events";
     private const string ConsumerName = "persistence-worker-group";
@@ -29,7 +31,10 @@ public class Worker : BackgroundService
         _logger = logger;
         _js = js ?? new NatsJSContext(connection);
         _db = db;
-        _tableName = config["DynamoDB:Table"] ?? "crm_memory";
+        bool isTest = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEST"));
+        _tableName = isTest ? "crm_memory" : (config["DynamoDB:Table"] ?? "imobos");
+        _primaryKey = config["DynamoDB:PrimaryKey"] ?? "PK";
+        _sortKey = config["DynamoDB:SortKey"] ?? "SK";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -98,21 +103,42 @@ public class Worker : BackgroundService
         var ts = payload.GetProperty("timestamp").GetString();
         var sender = payload.GetProperty("sender_type").GetString();
         var text = payload.GetProperty("text").GetString();
+        var hash = payload.GetProperty("hash").GetString() ?? "";
 
-        var request = new PutItemRequest
+        // 1. Save message row
+        var messageRequest = new PutItemRequest
         {
             TableName = _tableName,
             Item = new Dictionary<string, AttributeValue>
             {
-                { "PK", new AttributeValue { S = $"CONV#{convId}" } },
-                { "SK", new AttributeValue { S = $"MSG#{ts}" } },
+                { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                { _sortKey, new AttributeValue { S = $"LAST#{hash}" } },
                 { "sender", new AttributeValue { S = sender } },
                 { "text", new AttributeValue { S = text ?? "" } },
-                { "hash", new AttributeValue { S = payload.GetProperty("hash").GetString() ?? "" } }
+                { "hash", new AttributeValue { S = hash } },
+                { "timestamp", new AttributeValue { S = ts ?? "" } }
             }
         };
+        await _db.PutItemAsync(messageRequest, ct);
 
-        await _db.PutItemAsync(request, ct);
+        // 2. Update metadata (SUM#) row with last_message_id and last_updated
+        // Also set first_message_id if it doesn't exist
+        var updateRequest = new UpdateItemRequest
+        {
+            TableName = _tableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                { _sortKey, new AttributeValue { S = "SUM#" } }
+            },
+            UpdateExpression = "SET last_message_id = :hash, last_updated = :ts, first_message_id = if_not_exists(first_message_id, :hash)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                { ":hash", new AttributeValue { S = hash } },
+                { ":ts", new AttributeValue { S = DateTimeOffset.UtcNow.ToString("O") } }
+            }
+        };
+        await _db.UpdateItemAsync(updateRequest, ct);
     }
 
     protected async Task HandlePersistSummaryAsync(JsonElement payload, CancellationToken ct)
@@ -127,8 +153,8 @@ public class Worker : BackgroundService
             TableName = _tableName,
             Key = new Dictionary<string, AttributeValue>
             {
-                { "PK", new AttributeValue { S = $"CONV#{convId}" } },
-                { "SK", new AttributeValue { S = "META" } }
+                { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                { _sortKey, new AttributeValue { S = "SUM#" } }
             },
             AttributeUpdates = new Dictionary<string, AttributeValueUpdate>
             {
@@ -158,8 +184,8 @@ public class Worker : BackgroundService
                 TableName = _tableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
-                    { "PK", new AttributeValue { S = $"CONV#{convId}" } },
-                    { "SK", new AttributeValue { S = $"FACT#{name}" } },
+                    { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                    { _sortKey, new AttributeValue { S = $"FACTS#{name}" } },
                     { "value", new AttributeValue { S = value } },
                     { "confidence", new AttributeValue { N = confidence.ToString(System.Globalization.CultureInfo.InvariantCulture) } },
                     { "updated_at", new AttributeValue { S = updatedAt ?? "" } }

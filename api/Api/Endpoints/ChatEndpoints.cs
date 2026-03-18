@@ -96,21 +96,24 @@ public static class ChatEndpoints
             ILlmService llmService,
             CancellationToken ct) =>
         {
-            if (string.IsNullOrWhiteSpace(req.From) || string.IsNullOrWhiteSpace(req.Message))
-                return Results.BadRequest(new { error = "Fields 'from' and 'message' are required." });
+            if (string.IsNullOrWhiteSpace(req.BrokerNumber) || string.IsNullOrWhiteSpace(req.CustomerNumber))
+                return Results.BadRequest(new { error = "Fields 'broker_number' and 'customer_number' are required." });
+
+            if (string.IsNullOrWhiteSpace(req.Message))
+                return Results.BadRequest(new { error = "Field 'message' is required." });
 
             var senderType = req.Type?.ToLower() == "broker" ? SenderType.Broker : SenderType.Customer;
             var timestamp = DateTimeOffset.UtcNow;
             var text      = MessageNormalizer.Normalize(req.Message);
 
             var normalized = new NormalizedMessage(
-                ConversationId: MessageNormalizer.BuildConversationId("local-broker", req.From),
-                BrokerId:       "local-broker",
-                CustomerId:     req.From,
+                ConversationId: MessageNormalizer.BuildConversationId(req.BrokerNumber, req.CustomerNumber),
+                BrokerId:       req.BrokerNumber,
+                CustomerId:     req.CustomerNumber,
                 SenderType:     senderType,
                 Text:           text,
                 Timestamp:      timestamp,
-                MessageHash:    MessageNormalizer.ComputeHash(timestamp.ToString("O"), "local-broker", req.From, text));
+                MessageHash:    MessageNormalizer.ComputeHash(timestamp.ToString("O"), req.BrokerNumber, req.CustomerNumber, text));
 
             // Full pipeline: dedup → buffer → optional summary + fact extraction
             var result = await convService.ProcessMessageAsync(normalized, ct);
@@ -169,5 +172,5 @@ public static class ChatEndpoints
 
     }
 
-    private record ChatRequest(string From, string Message, string? Type);
+    private record ChatRequest(string BrokerNumber, string CustomerNumber, string Message, string? Type);
 }

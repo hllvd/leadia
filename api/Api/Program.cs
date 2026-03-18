@@ -42,15 +42,26 @@ else
 {
     // ── Production wiring ──────────────────────────────────────────────────
     var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
-    builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
+    builder.Services.AddTransient<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
 
     var dynamoDbEndpoint = Environment.GetEnvironmentVariable("DYNAMODB_ENDPOINT");
     builder.Services.AddSingleton<IAmazonDynamoDB>(sp =>
     {
         var cfg = new AmazonDynamoDBConfig();
         if (!string.IsNullOrEmpty(dynamoDbEndpoint))
+        {
             cfg.ServiceURL = dynamoDbEndpoint;
-        return new AmazonDynamoDBClient(cfg);
+            return new AmazonDynamoDBClient(new Amazon.Runtime.AnonymousAWSCredentials(), cfg);
+        }
+        else
+        {
+            var accessKey = config["DynamoDB:AccessKey"];
+            var secretKey = config["DynamoDB:SecretKey"];
+            var region = config["DynamoDB:Region"];
+            if (!string.IsNullOrEmpty(region))
+                cfg.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(region);
+            return new AmazonDynamoDBClient(accessKey, secretKey, cfg);
+        }
     });
 
     if (!isTest)

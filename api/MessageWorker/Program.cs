@@ -11,19 +11,34 @@ using NATS.Client.Core;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+// ── Configuration ──────────────────────────────────────────────────────────
+builder.Configuration.AddJsonFile("config.json", optional: false, reloadOnChange: true);
+var config = builder.Configuration;
+
 // ── Shared Infrastructure ───────────────────────────────────────────────────
 var natsUrl = Environment.GetEnvironmentVariable("NATS_URL") ?? "nats://localhost:4222";
-builder.Services.AddSingleton<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
+builder.Services.AddTransient<INatsConnection>(sp => new NatsConnection(new NatsOpts { Url = natsUrl }));
 
 var dynamoDbEndpoint = Environment.GetEnvironmentVariable("DYNAMODB_ENDPOINT");
+var isTest = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEST"));
 builder.Services.AddSingleton<IAmazonDynamoDB>(sp => 
 {
-    var config = new AmazonDynamoDBConfig();
-    if (!string.IsNullOrEmpty(dynamoDbEndpoint))
+    if (isTest)
     {
-        config.ServiceURL = dynamoDbEndpoint;
+        var cfg = new AmazonDynamoDBConfig();
+        cfg.ServiceURL = dynamoDbEndpoint ?? "http://dynamodb-local:8000";
+        return new AmazonDynamoDBClient(new Amazon.Runtime.AnonymousAWSCredentials(), cfg);
     }
-    return new AmazonDynamoDBClient(config);
+    else
+    {
+        var accessKey = config["DynamoDB:AccessKey"];
+        var secretKey = config["DynamoDB:SecretKey"];
+        var region = config["DynamoDB:Region"];
+        var cfg = new AmazonDynamoDBConfig();
+        if (!string.IsNullOrEmpty(region))
+            cfg.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(region);
+        return new AmazonDynamoDBClient(accessKey, secretKey, cfg);
+    }
 });
 
 // ── Repositories & Publishers ────────────────────────────────────────────────

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 
 const API_URL = '' // Use Vite proxy
 
-async function sendMessage(from, message, type = 'customer') {
+async function sendMessage(brokerNumber, customerNumber, message, type = 'customer') {
   const res = await fetch(`/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, message, type }),
+    body: JSON.stringify({ brokerNumber, customerNumber, message, type }),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
@@ -192,7 +192,7 @@ function FactsPanel({ facts, summary, allFacts, factLabels }) {
 }
 
 export default function ChatLab() {
-  const conversationId = useRef(`session-${Date.now()}`)
+
 
   const [messages, setMessages] = useState([])
   const [facts, setFacts]       = useState({})
@@ -204,6 +204,9 @@ export default function ChatLab() {
   const [brokerInput, setBrokerInput]     = useState('')
   const [loadingCustomer, setLoadingCustomer] = useState(false)
   const [loadingBroker, setBrokerLoading]     = useState(false)
+
+  const [brokerNumber, setBrokerNumber]     = useState('5511999999999')
+  const [customerNumber, setCustomerNumber] = useState('5511888888888')
 
   useEffect(() => {
     fetch('/api/chat/fact-metadata')
@@ -218,14 +221,16 @@ export default function ChatLab() {
   const push = (sender, text) =>
     setMessages(prev => [...prev, { sender, text }])
 
+  const conversationId = `${brokerNumber}-${customerNumber}`
+
   const sendAsCustomer = async () => {
     const text = customerInput.trim()
-    if (!text) return
+    if (!text || !brokerNumber || !customerNumber) return
     setCustomerInput('')
     push('customer', text)
     setLoadingCustomer(true)
     try {
-      const data = await sendMessage(conversationId.current, text, 'customer')
+      const data = await sendMessage(brokerNumber, customerNumber, text, 'customer')
       if (data.reply) push('broker', data.reply)
       if (data.facts?.length)  setFacts(Object.fromEntries(data.facts.map(f => [f.name, f])))
       if (data.summary)        setSummary(data.summary)
@@ -238,12 +243,12 @@ export default function ChatLab() {
 
   const sendAsBroker = async () => {
     const text = brokerInput.trim()
-    if (!text) return
+    if (!text || !brokerNumber || !customerNumber) return
     setBrokerInput('')
     push('broker', text)
     setBrokerLoading(true)
     try {
-      const data = await sendMessage(conversationId.current, text, 'broker')
+      const data = await sendMessage(brokerNumber, customerNumber, text, 'broker')
       if (data.facts?.length)  setFacts(Object.fromEntries(data.facts.map(f => [f.name, f])))
       if (data.summary)        setSummary(data.summary)
     } catch (err) {
@@ -255,22 +260,43 @@ export default function ChatLab() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
+      <div className="page-header" style={{ marginBottom: 20 }}>
+        <div style={{ flex: 1 }}>
           <h1 className="page-title">Chat Lab</h1>
           <p className="page-sub">Simule a conversa entre cliente e corretor — veja os fatos sendo extraídos em tempo real</p>
         </div>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => {
-            conversationId.current = `session-${Date.now()}`
-            setMessages([])
-            setFacts({})
-            setSummary('')
-          }}
-        >
-          🔄 Nova conversa
-        </button>
+        
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--surface)', padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Corretor</label>
+            <input 
+              value={brokerNumber} 
+              onChange={e => setBrokerNumber(e.target.value)}
+              placeholder="Número Corretor"
+              style={{ padding: '4px 8px', fontSize: '0.85rem', width: 140 }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Cliente</label>
+            <input 
+              value={customerNumber} 
+              onChange={e => setCustomerNumber(e.target.value)}
+              placeholder="Número Cliente"
+              style={{ padding: '4px 8px', fontSize: '0.85rem', width: 140 }}
+            />
+          </div>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ marginTop: 14 }}
+            onClick={() => {
+              setMessages([])
+              setFacts({})
+              setSummary('')
+            }}
+          >
+            🔄 Reset
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 160px)', minHeight: 500 }}>

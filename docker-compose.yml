@@ -14,10 +14,11 @@ services:
       - ./config.json:/app/config.json:ro
       - ./secrets/service-account.json:/app/secrets/service-account.json:ro
       - sqlite-data:/app/data
+      - ./logs:/app/logs
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - NATS_URL=nats://nats:4222
-      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      # - TEST=1
       - Database__ConnectionString=Data Source=/app/data/secondbrain.db
     depends_on:
       nats:
@@ -41,7 +42,9 @@ services:
     restart: unless-stopped
     environment:
       - NATS_URL=nats://nats:4222
-      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      # - TEST=1
+    volumes:
+      - ./config.json:/app/config.json:ro
     depends_on:
       nats:
         condition: service_healthy
@@ -59,7 +62,10 @@ services:
     restart: unless-stopped
     environment:
       - NATS_URL=nats://nats:4222
-      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      # - TEST=1
+
+    volumes:
+      - ./config.json:/app/config.json:ro
     depends_on:
       nats:
         condition: service_healthy
