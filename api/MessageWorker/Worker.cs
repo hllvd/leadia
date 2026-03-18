@@ -31,7 +31,7 @@ public class Worker : BackgroundService
 
     private const string StreamName = "messages";
     private const string ConsumerName = "message-worker-group";
-    private const string Subject = "message.received";
+    private const string Subject = "message.received.*";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -89,7 +89,7 @@ public class Worker : BackgroundService
 
                 var type = typeElement.GetString();
                 
-                if (type != Subject)
+                if (type != "message.received")
                 {
                     await msg.AckAsync(cancellationToken: stoppingToken);
                     continue;

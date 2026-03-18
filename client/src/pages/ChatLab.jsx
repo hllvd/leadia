@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { buildConversationId } from '../utils/chatUtils'
 
 const API_URL = '' // Use Vite proxy
 
@@ -221,7 +222,7 @@ export default function ChatLab() {
   const push = (sender, text) =>
     setMessages(prev => [...prev, { sender, text }])
 
-  const conversationId = `${brokerNumber}-${customerNumber}`
+  const conversationId = buildConversationId(brokerNumber, customerNumber)
 
   const sendAsCustomer = async () => {
     const text = customerInput.trim()

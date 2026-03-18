@@ -31,6 +31,16 @@ public class MessageNormalizerTests
             MessageNormalizer.BuildConversationId(broker, customer));
     }
 
+    [Theory]
+    [InlineData("persist.message.123-456", "123-456")]
+    [InlineData("message.received.abc", "abc")]
+    [InlineData("abc", "abc")]
+    [InlineData("", "")]
+    public void ExtractConversationId_ReturnsLastPart(string subject, string expected)
+    {
+        Assert.Equal(expected, MessageNormalizer.ExtractConversationId(subject));
+    }
+
     // ── Normalize ─────────────────────────────────────────────────────────────
 
     [Fact]

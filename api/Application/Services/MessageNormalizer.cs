@@ -22,6 +22,17 @@ public static partial class MessageNormalizer
     }
 
     /// <summary>
+    /// Extracts the conversation ID from a NATS subject (e.g., "persist.message.123-456").
+    /// Returns the last part of the subject.
+    /// </summary>
+    public static string ExtractConversationId(string subject)
+    {
+        if (string.IsNullOrEmpty(subject)) return string.Empty;
+        var lastDotIndex = subject.LastIndexOf('.');
+        return lastDotIndex != -1 ? subject[(lastDotIndex + 1)..] : subject;
+    }
+
+    /// <summary>
     /// Normalizes message text:
     ///   1. Trim leading/trailing whitespace
     ///   2. Collapse multiple consecutive spaces into one

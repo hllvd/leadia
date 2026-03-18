@@ -33,7 +33,7 @@ public class NatsPublisher : IMessagePublisher, IPersistenceEventPublisher, IAsy
     {
         var payload = new { type = "message.received", payload = message };
         var json = JsonSerializer.Serialize(payload);
-        await _js.PublishAsync("message.received", json, cancellationToken: ct);
+        await _js.PublishAsync($"message.received.{message.ConversationId}", json, cancellationToken: ct);
     }
 
     // ── IPersistenceEventPublisher (Worker side) ─────────────────────────────
@@ -53,7 +53,7 @@ public class NatsPublisher : IMessagePublisher, IPersistenceEventPublisher, IAsy
             }
         };
         var json = JsonSerializer.Serialize(payload);
-        await _js.PublishAsync("persist.message", json, cancellationToken: ct);
+        await _js.PublishAsync($"persist.message.{message.ConversationId}", json, cancellationToken: ct);
     }
 
     public async Task PublishSummaryAsync(string conversationId, string summary, string lastHash, CancellationToken ct = default)
@@ -70,7 +70,7 @@ public class NatsPublisher : IMessagePublisher, IPersistenceEventPublisher, IAsy
             }
         };
         var json = JsonSerializer.Serialize(payload);
-        await _js.PublishAsync("persist.summary", json, cancellationToken: ct);
+        await _js.PublishAsync($"persist.summary.{conversationId}", json, cancellationToken: ct);
     }
 
     public async Task PublishFactsAsync(string conversationId, IEnumerable<ConversationFact> facts, CancellationToken ct = default)
@@ -86,7 +86,7 @@ public class NatsPublisher : IMessagePublisher, IPersistenceEventPublisher, IAsy
             }
         };
         var json = JsonSerializer.Serialize(payload);
-        await _js.PublishAsync("persist.facts", json, cancellationToken: ct);
+        await _js.PublishAsync($"persist.facts.{conversationId}", json, cancellationToken: ct);
     }
 
     public async ValueTask DisposeAsync()
