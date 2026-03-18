@@ -39,8 +39,8 @@ out/
 
 # Secrets & Config
 secrets/
-config.json
-*config.json
+config.local.json
+*config.local.json
 service-account.json
 
 # Databases & Infrastructure

@@ -1,0 +1,53 @@
+{
+  "App": {
+    "Name": "ContaZap",
+    "Version": "1.0.0",
+    "Environment": "development"
+  },
+  "Database": {
+    "Provider": "sqlite",
+    "ConnectionString": "Data Source=secondbrain.db"
+  },
+  "Jwt": {
+    "Issuer": "contazap-api",
+    "Audience": "contazap-admin",
+    "ExpiryMinutes": 60,
+    "RefreshExpiryDays": 7
+  },
+  "SuperAdmin": {
+    "Email": "superadmin@test.com",
+    "Password": "---REDICTED---"
+  },
+  "Webhook": {
+    "Secret": "CHANGE_THIS_WEBHOOK_SECRET"
+  },
+  "GoogleSheets": {
+    "ServiceAccountKeyPath": "/app/secrets/service-account.json",
+    "SharedFolderId": ""
+  },
+  "Cors": {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://admin.contazap.com"
+    ]
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "DynamoDB": {
+    "AccessKey": "---REDICTED---",
+    "SecretKey": "---REDICTED---",
+    "Region": "us-east-1",
+    "Table": "imobos",
+    "PrimaryKey": "GSI1PK",
+    "SortKey": "GSI1SK"
+  },
+  "LLM": {
+    "Model": "deepseek-chat",
+    "BaseUrl": "https://api.deepseek.com/v1/",
+    "TimeoutSeconds": 60
+  }
+}
