@@ -19,6 +19,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - NATS_URL=nats://nats:4222
       # - TEST=1
+      # - DEBUG=true
       - Database__ConnectionString=Data Source=/app/data/secondbrain.db
     depends_on:
       nats:
