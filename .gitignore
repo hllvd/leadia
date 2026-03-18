@@ -39,6 +39,7 @@ out/
 
 # Secrets & Config
 secrets/
+config.json
 *config.json
 service-account.json
 
