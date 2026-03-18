@@ -77,3 +77,7 @@ Thumbs.db
 build_output.txt
 test_results.txt
 *.log
+
+# Logs
+logs/*
+
