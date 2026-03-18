@@ -163,7 +163,8 @@ public class ConversationStateService(
         Console.WriteLine($"[DEBUG] Merged result: {merged.Count} facts total.");
         await repository.UpsertFactsAsync(conversationId, merged, ct);
 
-        // ── 2. Publish persistence events ────────────────────────────────────
+        // ── 2. Publish persistence events (Queues) ───────────────────────────
+        // These will be picked up by the PersistenceWorker for offloading
         await persistencePublisher.PublishSummaryAsync(conversationId, llmResponse.Summary, state.LastMessageHash, ct);
         await persistencePublisher.PublishFactsAsync(conversationId, merged, ct);
     }

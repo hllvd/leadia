@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ── API Gateway ────────────────────────────────────────
   api:
@@ -15,13 +13,20 @@ services:
     volumes:
       - ./config.json:/app/config.json:ro
       - ./secrets/service-account.json:/app/secrets/service-account.json:ro
+      - sqlite-data:/app/data
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - NATS_URL=nats://nats:4222
       - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - Database__ConnectionString=Data Source=/app/data/secondbrain.db
     depends_on:
       nats:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - contazap-net
 
@@ -64,8 +69,8 @@ services:
   # ── NATS JetStream ────────────────────────────────────
   nats:
     image: nats:2.10-alpine
-    container_name: crm-nats
-    command: ["-c", "/etc/nats/nats-server.conf"]
+    container_name: contazap-nats
+    command: [ "-c", "/etc/nats/nats-server.conf" ]
     ports:
       - "4222:4222"
       - "8222:8222"
@@ -73,10 +78,11 @@ services:
       - ./infra/nats/nats-server.conf:/etc/nats/nats-server.conf:ro
       - nats-data:/data/jetstream
     healthcheck:
-      test: ["CMD", "nats-server", "--healthz"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz" ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
     networks:
       - contazap-net
 
@@ -86,7 +92,7 @@ services:
     container_name: dynamodb-local
     ports:
       - "8000:8000"
-    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    command: [ "-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory" ]
     networks:
       - contazap-net
 
@@ -97,7 +103,7 @@ services:
       - dynamodb-local
     volumes:
       - ./infra/dynamodb/init-dynamo.sh:/init.sh
-    entrypoint: ["/bin/bash", "/init.sh"]
+    entrypoint: [ "/bin/bash", "/init.sh" ]
     networks:
       - contazap-net
 
@@ -108,7 +114,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
     networks:
       - contazap-net
@@ -130,7 +136,7 @@ services:
 
 volumes:
   nats-data:
-  sqlite-data: # Retained legacy volume
+  sqlite-data:
 
 networks:
   contazap-net:

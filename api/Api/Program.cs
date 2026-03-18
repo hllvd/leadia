@@ -146,7 +146,7 @@ app.MapBotEndpoints();
 app.MapWebhookEndpoints(config);
 app.MapRealStateEndpoints();
 app.MapTestEndpoints();
-if (isLocal) app.MapChatEndpoints();
+app.MapChatEndpoints();
 
 app.Run();
 

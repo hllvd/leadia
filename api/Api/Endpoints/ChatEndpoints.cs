@@ -166,6 +166,7 @@ public static class ChatEndpoints
         });
 
 
+
     }
 
     private record ChatRequest(string From, string Message, string? Type);

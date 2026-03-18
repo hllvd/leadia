@@ -1,0 +1,11 @@
+bin/
+obj/
+**/bin/
+**/obj/
+**/.vs/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+config.json
+**/TestResults/
+*.user

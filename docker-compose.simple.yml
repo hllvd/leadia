@@ -1,0 +1,68 @@
+services:
+  # ── API Gateway ────────────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      args:
+        - PROJECT_NAME=Api
+    container_name: contazap-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.json:/app/config.json:ro
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contazap-net
+
+  # ── NATS JetStream ────────────────────────────────────
+  nats:
+    image: nats:2.10-alpine
+    container_name: crm-nats
+    command: [ "-c", "/etc/nats/nats-server.conf" ]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - ./infra/nats/nats-server.conf:/etc/nats/nats-server.conf:ro
+      - nats-data:/data/jetstream
+    healthcheck:
+      test: [ "CMD", "nats-server", "--healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contazap-net
+
+  # ── Client ────────────────────────────────────────────
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: contazap-client
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - contazap-net
+
+volumes:
+  nats-data:
+
+networks:
+  contazap-net:
+    driver: bridge

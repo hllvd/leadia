@@ -3,13 +3,10 @@
 # Port to clean
 PORT=5050
 
-echo "🔍 Cleaning up port $PORT..."
-PID=$(lsof -ti:$PORT)
-if [ -z "$PID" ]; then
-    echo "✅ Port $PORT is already free."
-else
-    echo "💀 Killing process(es) $PID on port $PORT..."
-    echo "$PID" | xargs kill -9
+CLEAN_SCRIPT="scripts/clean-ports.sh"
+if [ -f "$CLEAN_SCRIPT" ]; then
+    echo "🔍 Cleaning up port $PORT..."
+    bash "$CLEAN_SCRIPT" "$PORT"
 fi
 
 echo "🏗️ Starting the API..."
