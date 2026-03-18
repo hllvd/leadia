@@ -12,6 +12,7 @@ services:
       - "8080:8080"
     volumes:
       - ./config.json:/app/config.json:ro
+      - ./config.local.json:/app/config.local.json:ro
       - ./secrets/service-account.json:/app/secrets/service-account.json:ro
       - sqlite-data:/app/data
       - ./logs:/app/logs
@@ -46,6 +47,7 @@ services:
       # - TEST=1
     volumes:
       - ./config.json:/app/config.json:ro
+      - ./config.local.json:/app/config.local.json:ro
     depends_on:
       nats:
         condition: service_healthy
@@ -67,6 +69,7 @@ services:
 
     volumes:
       - ./config.json:/app/config.json:ro
+      - ./config.local.json:/app/config.local.json:ro
     depends_on:
       nats:
         condition: service_healthy

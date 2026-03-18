@@ -8,6 +8,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 // ── Configuration ──────────────────────────────────────────────────────────
 builder.Configuration.AddJsonFile("config.json", optional: false, reloadOnChange: true);
+builder.Configuration.AddJsonFile("config.local.json", optional: true, reloadOnChange: true);
 var config = builder.Configuration;
 
 // ── Shared Infrastructure ───────────────────────────────────────────────────

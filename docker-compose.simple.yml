@@ -12,6 +12,7 @@ services:
       - "8080:8080"
     volumes:
       - ./config.json:/app/config.json:ro
+      - ./config.local.json:/app/config.local.json:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - NATS_URL=nats://nats:4222
