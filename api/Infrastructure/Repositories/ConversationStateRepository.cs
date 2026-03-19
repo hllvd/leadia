@@ -65,4 +65,7 @@ public class ConversationStateRepository(AppDbContext db) : IConversationStateRe
 
         await db.SaveChangesAsync(ct);
     }
+
+    public Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
 }

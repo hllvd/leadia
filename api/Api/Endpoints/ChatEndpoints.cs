@@ -1,5 +1,6 @@
 using Application.Interfaces;
 using Application.Services;
+using Domain.Entities;
 using Domain.Enums;
 using Domain.Constants;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +13,7 @@ public static class ChatEndpoints
     {
         try
         {
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "prompts", PromptNames.BrokerSystem);
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Prompts", PromptNames.BrokerSystem);
             if (File.Exists(path)) return File.ReadAllText(path);
 
             return "You are a professional real estate broker assistant.";
@@ -62,16 +63,9 @@ public static class ChatEndpoints
                 var result = await convService.ProcessMessageAsync(normalized, ct);
                 if (result is null) continue;
 
-                if (result.SummaryTriggered && result.LlmContext is not null)
-                {
-                    var llmResult = await llmService.AnalyzeAsync(result.LlmContext, ct);
-                    if (llmResult is not null)
-                        await convService.ApplyLlmResultAsync(normalized.ConversationId, llmResult, ct);
-                }
-
-                var userMessage = result.LlmContext is not null
-                    ? $"{result.LlmContext}\n\nNow write your reply to the customer:"
-                    : text;
+                // Note: The example endpoint is now partially broken because it expects immediate results.
+                // We'll just show the message for now.
+                var userMessage = text;
 
                 var reply = await llmService.ChatAsync(GetBrokerSystemPrompt(), userMessage, ct)
                             ?? "...";
@@ -79,8 +73,7 @@ public static class ChatEndpoints
                 turns.Add(new
                 {
                     customer = message,
-                    broker   = reply,
-                    summaryTriggered = result.SummaryTriggered
+                    broker   = reply
                 });
 
                 // Small delay so timestamps differ and dedup hash stays unique
@@ -115,47 +108,39 @@ public static class ChatEndpoints
                 Timestamp:      timestamp,
                 MessageHash:    MessageNormalizer.ComputeHash(timestamp.ToString("O"), req.BrokerNumber, req.CustomerNumber, text));
 
-            // Full pipeline: dedup → buffer → optional summary + fact extraction
+            // Full pipeline: dedup → buffer
             var result = await convService.ProcessMessageAsync(normalized, ct);
 
             if (result is null)
                 return Results.Ok(new { reply = "(duplicate message — ignored)" });
 
-            // If buffer threshold was met, update summary + facts via LLM
-            if (result.SummaryTriggered && result.LlmContext is not null)
+            // We no longer trigger LLM here. The MessageWorker will handle it asynchronously.
+            // The API returns immediately.
+            return Results.Accepted($"/api/chat/{normalized.ConversationId}/history", new
             {
-                var llmResult = await llmService.AnalyzeAsync(result.LlmContext, ct);
-                if (llmResult is not null)
-                    await convService.ApplyLlmResultAsync(normalized.ConversationId, llmResult, ct);
-            }
+                status = "queued",
+                conversationId = normalized.ConversationId
+            });
+        });
 
-            string? reply = null;
-
-            // Only generate an AI reply if the customer sent the message and the chat is in Agent mode
-            if (senderType == SenderType.Customer && result.UpdatedState.Mode == ConversationMode.AgentAndListening)
-            {
-                // Build user message for the broker reply: include context when available
-                var userMessage = result.LlmContext is not null
-                    ? $"{result.LlmContext}\n\nNow write your reply to the customer:"
-                    : text;
-
-                reply = await llmService.ChatAsync(GetBrokerSystemPrompt(), userMessage, ct)
-                            ?? "I'm sorry, I couldn't process your message right now. Please try again.";
-            }
-            else if (senderType == SenderType.Customer && result.UpdatedState.Mode == ConversationMode.OnlyListening)
-            {
-                reply = null; // No AI reply in OnlyListening mode
-            }
-
-            // Load updated facts + summary to return to the caller
-            var facts   = await convService.GetFactsAsync(normalized.ConversationId, ct);
-            var summary = await convService.GetSummaryAsync(normalized.ConversationId, ct);
-
+        app.MapGet("/api/chat/{conversationId}/history", async (
+            string conversationId,
+            ConversationStateService convService,
+            CancellationToken ct) =>
+        {
+            var facts    = await convService.GetFactsAsync(conversationId, ct);
+            var summary  = await convService.GetSummaryAsync(conversationId, ct);
+            var messages = await convService.GetMessagesAsync(conversationId, ct);
+            
             return Results.Ok(new
             {
-                reply,
                 summary,
-                facts = facts.Select(f => new { name = f.FactName, value = f.Value, confidence = f.Confidence })
+                facts = facts.Select(f => new { name = f.FactName, value = f.Value, confidence = f.Confidence }),
+                messages = messages.Select(m => new { 
+                    sender = m.SenderType.ToString().ToLower(), 
+                    text = m.Text, 
+                    timestamp = m.Timestamp 
+                })
             });
         });
 

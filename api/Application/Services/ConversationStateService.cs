@@ -6,27 +6,12 @@ using Domain.Enums;
 
 namespace Application.Services;
 
-/// <summary>
-/// Normalized inbound message — output of the normalization pipeline.
-/// Passed from the webhook endpoint to ConversationStateService.
-/// </summary>
-public record NormalizedMessage(
-    string ConversationId,
-    string BrokerId,
-    string CustomerId,
-    SenderType SenderType,
-    string Text,
-    DateTimeOffset Timestamp,
-    string MessageHash);
 
 /// <summary>
 /// Result returned by ProcessMessageAsync.
 /// </summary>
 public record ProcessResult(
-    ConversationState UpdatedState,
-    bool SummaryTriggered,
-    bool FactsUpdated,
-    string? LlmContext);
+    ConversationState UpdatedState);
 
 /// <summary>
 /// Orchestrates message processing using pure helper services.
@@ -100,19 +85,10 @@ public class ConversationStateService(
         state.LastMessageTimestamp  = msg.Timestamp;
         state.LastActivityTimestamp = DateTimeOffset.UtcNow;
 
-        string? llmContext = null;
-        bool summaryTriggered = false;
-
-        if (shouldTrigger)
-        {
-            var facts = await repository.GetFactsAsync(msg.ConversationId, ct);
-            llmContext     = LlmContextBuilder.Build(state.RollingSummary, facts, buffer, msg.Text);
-            summaryTriggered = true;
-
-            // Clear buffer after triggering
-            buffer      = [];
-            bufferChars = 0;
-        }
+        // ── 4. Update state fields ────────────────────────────────────────────
+        state.LastMessageHash       = msg.MessageHash;
+        state.LastMessageTimestamp  = msg.Timestamp;
+        state.LastActivityTimestamp = DateTimeOffset.UtcNow;
 
         state.BufferJson  = JsonSerializer.Serialize(buffer);
         state.BufferChars = bufferChars;
@@ -124,7 +100,7 @@ public class ConversationStateService(
         await persistencePublisher.PublishMessageAsync(msg, ct);
 
         // Notify if LLM check is needed immediately
-        return new ProcessResult(state, summaryTriggered, false, llmContext);
+        return new ProcessResult(state);
     }
 
     /// <summary>
@@ -181,4 +157,37 @@ public class ConversationStateService(
         var state = await repository.GetByIdAsync(conversationId, ct);
         return state?.RollingSummary ?? string.Empty;
     }
+
+    /// <summary>Returns full conversation state.</summary>
+    public async Task<ConversationState?> GetStateAsync(
+        string conversationId, CancellationToken ct = default)
+        => await repository.GetByIdAsync(conversationId, ct);
+
+    /// <summary>
+    /// Forces an analysis of the current buffer, regardless of normal trigger rules.
+    /// Clears the buffer and returns the context for LLM analysis.
+    /// </summary>
+    public async Task<string?> TriggerAnalysisAsync(string conversationId, CancellationToken ct = default)
+    {
+        var state = await repository.GetByIdAsync(conversationId, ct);
+        if (state == null) return null;
+
+        var buffer = JsonSerializer.Deserialize<List<string>>(state.BufferJson) ?? [];
+        if (buffer.Count == 0) return null;
+
+        var facts = await repository.GetFactsAsync(conversationId, ct);
+        var llmContext = LlmContextBuilder.Build(state.RollingSummary, facts, buffer, string.Empty);
+
+        // Clear buffer
+        state.BufferJson = "[]";
+        state.BufferChars = 0;
+        await repository.UpsertAsync(state, ct);
+
+        return llmContext;
+    }
+
+    /// <summary>Returns all messages for a conversation.</summary>
+    public async Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(
+        string conversationId, CancellationToken ct = default)
+        => await repository.GetMessagesAsync(conversationId, ct);
 }

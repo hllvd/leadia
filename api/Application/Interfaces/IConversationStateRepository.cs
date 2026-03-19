@@ -18,4 +18,7 @@ public interface IConversationStateRepository
 
     /// <summary>Replaces all facts for a conversation with the provided list.</summary>
     Task UpsertFactsAsync(string conversationId, IEnumerable<ConversationFact> facts, CancellationToken ct = default);
+
+    /// <summary>Gets all messages for a conversation.</summary>
+    Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default);
 }

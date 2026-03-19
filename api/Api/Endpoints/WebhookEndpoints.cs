@@ -1,6 +1,7 @@
 using Application.DTOs;
 using Application.Interfaces;
 using Application.Services;
+using Domain.Entities;
 using Domain.Enums;
 
 namespace Api.Endpoints;

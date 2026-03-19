@@ -125,4 +125,29 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             await _db.PutItemAsync(request, ct);
         }
     }
+
+    public async Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default)
+    {
+        var request = new QueryRequest
+        {
+            TableName = _tableName,
+            KeyConditionExpression = $"{_primaryKey} = :pk AND begins_with({_sortKey}, :sk_prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                { ":pk", new AttributeValue { S = $"CONV#{conversationId}" } },
+                { ":sk_prefix", new AttributeValue { S = "LAST#" } }
+            }
+        };
+
+        var response = await _db.QueryAsync(request, ct);
+        return response.Items.Select(item => new NormalizedMessage(
+            conversationId,
+            item.GetValueOrDefault("broker_id")?.S ?? "",
+            item.GetValueOrDefault("customer_id")?.S ?? "",
+            Enum.Parse<Domain.Enums.SenderType>(item["sender"].S),
+            item["text"].S,
+            DateTimeOffset.Parse(item["timestamp"].S),
+            item[_sortKey].S.Replace("LAST#", "")
+        )).OrderBy(m => m.Timestamp).ToList();
+    }
 }

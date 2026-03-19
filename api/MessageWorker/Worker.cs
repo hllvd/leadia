@@ -21,6 +21,15 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly INatsJSContext _js;
     private readonly IServiceProvider _serviceProvider;
+    private readonly Dictionary<string, ConversationActivity> _activeConversations = new();
+    private readonly object _lock = new();
+
+    private record ConversationActivity(string ConversationId)
+    {
+        public DateTimeOffset FirstActivity { get; init; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset LastActivity { get; set; } = DateTimeOffset.UtcNow;
+        public int MessageCount { get; set; } = 1;
+    }
 
     public Worker(ILogger<Worker> logger, INatsConnection connection, IServiceProvider serviceProvider, INatsJSContext? js = null)
     {
@@ -31,7 +40,7 @@ public class Worker : BackgroundService
 
     private const string StreamName = "messages";
     private const string ConsumerName = "message-worker-group";
-    private const string Subject = "message.received.*";
+    private const string Subject = "message.received.>";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -39,7 +48,10 @@ public class Worker : BackgroundService
 
         try
         {
-            await _js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, [Subject]), stoppingToken);
+            await _js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, [Subject])
+            {
+                MaxAge = TimeSpan.FromMinutes(10)
+            }, stoppingToken);
             await _js.CreateOrUpdateConsumerAsync(StreamName, new ConsumerConfig(ConsumerName)
             {
                 DurableName = ConsumerName,
@@ -52,6 +64,9 @@ public class Worker : BackgroundService
         {
             _logger.LogWarning("Stream/Consumer creation skipped or failed. NATS might need manual setup. Error: {Error}", ex.Message);
         }
+
+        // 1. Start trigger check loop
+        _ = Task.Run(() => CheckTriggersLoopAsync(stoppingToken), stoppingToken);
 
         // 2. Consume messages
         var consumer = await _js.GetConsumerAsync(StreamName, ConsumerName, stoppingToken);
@@ -130,25 +145,139 @@ public class Worker : BackgroundService
                     continue;
                 }
 
-                // Handle LLM trigger
-                if (result.SummaryTriggered && !string.IsNullOrEmpty(result.LlmContext))
+                // Track activity for debounced LLM analysis
+                lock (_lock)
                 {
-                    _logger.LogInformation("Buffer triggered LLM analysis for {ConvId}", normalized.ConversationId);
-                    var llmResponse = await llmService.AnalyzeAsync(result.LlmContext, stoppingToken);
-                    if (llmResponse != null)
+                    if (_activeConversations.TryGetValue(normalized.ConversationId, out var activity))
                     {
-                        await convService.ApplyLlmResultAsync(normalized.ConversationId, llmResponse, stoppingToken);
+                        activity.LastActivity = DateTimeOffset.UtcNow;
+                        activity.MessageCount++;
+                    }
+                    else
+                    {
+                        _activeConversations[normalized.ConversationId] = new ConversationActivity(normalized.ConversationId);
                     }
                 }
+
+                // The background loop (CheckTriggersLoopAsync) will handle the LLM trigger
+                // based on inactivity or message count.
 
                 await msg.AckAsync(cancellationToken: stoppingToken);
                 _logger.LogInformation("Successfully processed and Acked message {Hash}", normalized.MessageHash);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to process NATS message.");
-                // NATS will re-deliver after AckWait (30s)
+                _logger.LogError(ex, "Error processing message from NATS JetStream.");
+                // Depending on error type, you might want to Nack or Terminate the message.
+                // For now, we'll ack to prevent reprocessing of potentially bad messages,
+                // but a more robust solution might inspect the error.
+                await msg.AckAsync(cancellationToken: stoppingToken);
             }
         }
+    }
+    private async Task CheckTriggersLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(2000, ct); // Check every 2 seconds
+
+                List<ConversationActivity> toTrigger = new();
+                lock (_lock)
+                {
+                    var now = DateTimeOffset.UtcNow;
+                    foreach (var kvp in _activeConversations.ToList())
+                    {
+                        var activity = kvp.Value;
+                        var inactiveSeconds = (now - activity.LastActivity).TotalSeconds;
+                        var totalWaitSeconds = (now - activity.FirstActivity).TotalSeconds;
+
+                        // Rules:
+                        // 1. 10s of inactivity
+                        // 2. If 3+ messages, don't wait more than 30s total
+                        if (inactiveSeconds >= 10 || (activity.MessageCount >= 3 && totalWaitSeconds >= 30))
+                        {
+                            toTrigger.Add(activity);
+                            _activeConversations.Remove(kvp.Key);
+                        }
+                    }
+                }
+
+                foreach (var activity in toTrigger)
+                {
+                    await PerformAsyncAnalysisAndReply(activity.ConversationId, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in trigger check loop");
+            }
+        }
+    }
+
+    private async Task PerformAsyncAnalysisAndReply(string conversationId, CancellationToken ct)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var convService = scope.ServiceProvider.GetRequiredService<ConversationStateService>();
+            var llmService = scope.ServiceProvider.GetRequiredService<ILlmService>();
+
+            _logger.LogInformation("Performing async analysis/reply for {ConvId}", conversationId);
+
+            // 1. Trigger the analysis of the buffer
+            var llmContext = await convService.TriggerAnalysisAsync(conversationId, ct);
+            if (!string.IsNullOrEmpty(llmContext))
+            {
+                var llmResponse = await llmService.AnalyzeAsync(llmContext, ct);
+                if (llmResponse != null)
+                {
+                    await convService.ApplyLlmResultAsync(conversationId, llmResponse, ct);
+                }
+            }
+
+            // 2. Generate an AI reply if in Agent mode
+            var state = await convService.GetStateAsync(conversationId, ct);
+            if (state != null && state.Mode == Domain.Enums.ConversationMode.AgentAndListening)
+            {
+                // We typically reply if the last message was from the customer.
+                // For simplicity, we'll check the current context.
+                var welcomePrompt = await GetPromptAsync(Domain.Constants.PromptNames.BrokerSystem);
+                var reply = await llmService.ChatAsync(welcomePrompt, llmContext ?? state.RollingSummary, ct);
+                
+                if (!string.IsNullOrEmpty(reply))
+                {
+                    _logger.LogInformation("Async AI reply generated for {ConvId}", conversationId);
+                    // In a real app, you'd send this back to NATS as a reply event.
+                    // For now, let's just log it or persist it as a broker message.
+                    var brokerMsg = new NormalizedMessage(
+                        conversationId,
+                        state.BrokerId,
+                        state.CustomerId,
+                        Domain.Enums.SenderType.Broker,
+                        reply,
+                        DateTimeOffset.UtcNow,
+                        Guid.NewGuid().ToString("N") // Dummy hash for reply
+                    );
+                    await convService.ProcessMessageAsync(brokerMsg, ct);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during async analysis for {ConvId}", conversationId);
+        }
+    }
+
+    private async Task<string> GetPromptAsync(string name)
+    {
+        try
+        {
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Prompts", name);
+            if (File.Exists(path)) return await File.ReadAllTextAsync(path);
+            return "You are a professional assistant.";
+        }
+        catch { return "You are a professional assistant."; }
     }
 }

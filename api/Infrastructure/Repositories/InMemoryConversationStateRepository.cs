@@ -33,4 +33,7 @@ public class InMemoryConversationStateRepository : IConversationStateRepository
         _facts[conversationId] = [.. facts];
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
 }

@@ -44,7 +44,7 @@ public class Worker : BackgroundService
         // 1. Ensure Stream and Consumer exist (Matching QUEUE.md setup)
         try
         {
-            await _js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, ["persist.*"]), stoppingToken);
+            await _js.CreateOrUpdateStreamAsync(new StreamConfig(StreamName, ["persist.>"]), stoppingToken);
             await _js.CreateOrUpdateConsumerAsync(StreamName, new ConsumerConfig(ConsumerName)
             {
                 DurableName = ConsumerName,

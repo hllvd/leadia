@@ -21,7 +21,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="prompts\*.md">
+    <None Update="..\Application\Prompts\*.md">
+      <Link>Prompts\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -209,6 +209,8 @@ export default function ChatLab() {
   const [brokerNumber, setBrokerNumber]     = useState('5511999999999')
   const [customerNumber, setCustomerNumber] = useState('5511888888888')
 
+  const conversationId = buildConversationId(brokerNumber, customerNumber)
+
   useEffect(() => {
     fetch('/api/chat/fact-metadata')
       .then(res => res.json())
@@ -219,10 +221,37 @@ export default function ChatLab() {
       .catch(err => console.error('Erro ao buscar metadados de fatos', err))
   }, [])
 
+  // Poll for history (summary/facts) for the current conversation
+  useEffect(() => {
+    if (!brokerNumber || !customerNumber) return
+    
+    console.log(`[DEBUG] Iniciando polling para ${conversationId}`)
+    const interval = setInterval(() => {
+      fetch(`/api/chat/${conversationId}/history`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.summary) setSummary(data.summary)
+          if (data.facts) {
+            const factsObj = Array.isArray(data.facts) 
+              ? Object.fromEntries(data.facts.map(f => [f.name, f]))
+              : data.facts
+            setFacts(factsObj)
+          }
+          if (data.messages?.length) {
+            setMessages(prev => {
+              if (prev.length !== data.messages.length) return data.messages
+              return prev
+            })
+          }
+        })
+        .catch(err => console.error('Erro ao pollar histórico', err))
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [conversationId])
+
   const push = (sender, text) =>
     setMessages(prev => [...prev, { sender, text }])
-
-  const conversationId = buildConversationId(brokerNumber, customerNumber)
 
   const sendAsCustomer = async () => {
     const text = customerInput.trim()
