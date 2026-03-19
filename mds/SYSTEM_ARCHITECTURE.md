@@ -215,6 +215,30 @@ facts = {}
 buffer = []
 ```
 
+---
+
+# 4.1 Conversation Mode (Agent Mode / Listening Mode Flag)
+
+The system supports a **Conversation Mode** flag to control the behavior of the conversation processing. This flag determines whether the system operates in **Listening Mode** only or in **Agent Mode** (listening + responding).
+
+### Conversation Mode Options
+
+- **OnlyListening**: The system only listens to messages, extracts facts, and maintains conversation state without generating responses. Useful for passive data collection.
+- **AgentAndListening**: The system listens to messages, extracts facts, and actively responds as an AI agent using the LLM.
+
+### Implementation
+
+The mode is configured per broker via the `RealStateBroker` entity:
+```
+public ConversationMode Mode { get; set; } = ConversationMode.OnlyListening;
+```
+
+This flag is checked during message processing to decide whether to trigger LLM responses or just update the state.
+
+### Use Cases
+
+- **Listening Mode**: For initial data gathering or when human agents handle responses.
+- **Agent Mode**: For automated customer interactions, lead qualification, and instant responses.
 
 ---
 
