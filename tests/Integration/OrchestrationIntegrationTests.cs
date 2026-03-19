@@ -69,9 +69,9 @@ public class OrchestrationIntegrationTests
         
         var llmResponse = new LlmResponse(
             "New Summary", 
-            new Dictionary<string, LlmFactUpdate> 
+            new Dictionary<string, JsonElement> 
             { 
-                { "name", new LlmFactUpdate("John Doe", 0.9) } 
+                { "name", JsonSerializer.Deserialize<JsonElement>("\"John Doe\"") } 
             }
         );
 

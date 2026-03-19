@@ -61,23 +61,21 @@ public class Worker : BackgroundService
         // 2. Consume messages
         var consumer = await _js.GetConsumerAsync(StreamName, ConsumerName, stoppingToken);
 
-        await foreach (var msg in consumer.ConsumeAsync<JsonElement>(cancellationToken: stoppingToken))
+        await foreach (var msg in consumer.ConsumeAsync<string>(cancellationToken: stoppingToken))
         {
             try
             {
-                var eventData = msg.Data;
-                
-                // If the message was received as a string (value kind String), parse it as a JSON object
-                if (eventData.ValueKind == JsonValueKind.String)
+                var json = msg.Data;
+                if (string.IsNullOrEmpty(json))
                 {
-                    var rawString = eventData.GetString();
-                    if (!string.IsNullOrEmpty(rawString))
-                    {
-                        using var doc = JsonDocument.Parse(rawString);
-                        eventData = doc.RootElement.Clone(); // Clone to keep the element alive after doc is disposed
-                    }
+                    _logger.LogWarning("Received empty message from NATS.");
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
                 }
 
+                using var doc = JsonDocument.Parse(json);
+                var eventData = doc.RootElement;
+                
                 if (eventData.ValueKind != JsonValueKind.Object)
                 {
                     _logger.LogWarning("Received non-object persistence event. ValueKind: {ValueKind}", eventData.ValueKind);
@@ -127,7 +125,9 @@ public class Worker : BackgroundService
     {
         var convId = payload.GetProperty("conversation_id").GetString();
         var ts = payload.GetProperty("timestamp").GetString();
-        var sender = payload.GetProperty("sender_type").GetString();
+        var sender = payload.GetProperty("sender_type").ValueKind == JsonValueKind.String 
+                     ? payload.GetProperty("sender_type").GetString() 
+                     : payload.GetProperty("sender_type").GetInt32().ToString();
         var text = payload.GetProperty("text").GetString();
         var hash = payload.GetProperty("hash").GetString() ?? "";
 
@@ -202,7 +202,7 @@ public class Worker : BackgroundService
         foreach (var fact in facts)
         {
             var name = fact.GetProperty("name").GetString();
-            var value = fact.GetProperty("value").GetRawText(); // Handle object/string generically
+            var value = fact.GetProperty("value").GetString();
             var confidence = fact.GetProperty("confidence").GetDouble();
 
             var request = new PutItemRequest

@@ -47,7 +47,7 @@ public class NatsPublisher : IMessagePublisher, IPersistenceEventPublisher, IAsy
             {
                 conversation_id = message.ConversationId,
                 timestamp = message.Timestamp.ToString("O"),
-                sender_type = message.SenderType,
+                sender_type = message.SenderType.ToString(),
                 text = message.Text,
                 hash = message.MessageHash
             }

@@ -154,28 +154,32 @@ public class LlmService : ILlmService
     {
         try
         {
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "prompts", PromptNames.AnalysisSystem);
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Prompts", PromptNames.AnalysisSystem);
             if (File.Exists(path)) return File.ReadAllText(path);
 
             return """
-                You are an assistant analyzing WhatsApp conversations between real estate brokers and leads.
-                Your tasks:
-                1. Extract or update structured facts from the latest messages.
-                2. Generate an updated one-paragraph summary of the conversation so far.
-                Rules:
-                - Response in JSON format only with keys: "summary" and "facts" (object/dictionary).
+                Você é um assistente profissional analisando conversas de WhatsApp entre corretores imobiliários e clientes.
+                Suas tarefas:
+                1. Extrair ou atualizar fatos estruturados a partir das mensagens recentes.
+                2. Gerar um resumo atualizado da conversa (1 parágrafo).
+                Regras:
+                - Responda apenas em JSON.
+                - O JSON deve ter duas chaves: "summary" (o resumo em PT-BR) e "facts" (um dicionário simples chave: valor, tudo em PT-BR).
+                - IMPORTANTE: Se um fato não foi mencionado, NÃO O INCLUA no JSON. Não use "Não especificado". Apenas omita a chave!
                 """;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load analysis system prompt from file. Using hardcoded fallback.");
             return """
-                You are an assistant analyzing WhatsApp conversations between real estate brokers and leads.
-                Your tasks:
-                1. Extract or update structured facts from the latest messages.
-                2. Generate an updated one-paragraph summary of the conversation so far.
-                Rules:
-                - Response in JSON format only with keys: "summary" and "facts" (object/dictionary).
+                Você é um assistente profissional analisando conversas de WhatsApp entre corretores imobiliários e clientes.
+                Suas tarefas:
+                1. Extrair ou atualizar fatos estruturados a partir das mensagens recentes.
+                2. Gerar um resumo atualizado da conversa (1 parágrafo).
+                Regras:
+                - Responda apenas em JSON.
+                - O JSON deve ter duas chaves: "summary" (o resumo em PT-BR) e "facts" (um dicionário simples chave: valor, tudo em PT-BR).
+                - IMPORTANTE: Se um fato não foi mencionado, NÃO O INCLUA no JSON. Não use "Não especificado". Apenas omita a chave!
                 """;
         }
     }

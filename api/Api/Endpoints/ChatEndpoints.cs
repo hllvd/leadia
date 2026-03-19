@@ -87,6 +87,7 @@ public static class ChatEndpoints
             ChatRequest req,
             ConversationStateService convService,
             ILlmService llmService,
+            IMessagePublisher publisher,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(req.BrokerNumber) || string.IsNullOrWhiteSpace(req.CustomerNumber))
@@ -108,11 +109,8 @@ public static class ChatEndpoints
                 Timestamp:      timestamp,
                 MessageHash:    MessageNormalizer.ComputeHash(timestamp.ToString("O"), req.BrokerNumber, req.CustomerNumber, text));
 
-            // Full pipeline: dedup → buffer
-            var result = await convService.ProcessMessageAsync(normalized, ct);
-
-            if (result is null)
-                return Results.Ok(new { reply = "(duplicate message — ignored)" });
+            // We publish the underlying message so MessageWorker handles deduplication, buffering, and AI logic asynchronously.
+            await publisher.PublishAsync(normalized, ct);
 
             // We no longer trigger LLM here. The MessageWorker will handle it asynchronously.
             // The API returns immediately.

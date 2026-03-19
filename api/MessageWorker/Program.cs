@@ -4,6 +4,7 @@ using Application.Services;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using MessageWorker;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http;
@@ -14,6 +15,7 @@ var builder = Host.CreateApplicationBuilder(args);
 // ── Configuration ──────────────────────────────────────────────────────────
 builder.Configuration.AddJsonFile("config.json", optional: false, reloadOnChange: true);
 builder.Configuration.AddJsonFile("config.local.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddEnvironmentVariables();
 var config = builder.Configuration;
 
 // ── Shared Infrastructure ───────────────────────────────────────────────────
@@ -44,8 +46,16 @@ builder.Services.AddSingleton<IAmazonDynamoDB>(sp =>
 
 // ── Repositories & Publishers ────────────────────────────────────────────────
 builder.Services.AddScoped<IConversationStateRepository, DynamoDbConversationStateRepository>();
-builder.Services.AddScoped<IPersistenceEventPublisher, NatsPublisher>();
-builder.Services.AddScoped<IMessagePublisher, NatsPublisher>();
+builder.Services.AddScoped<IPersistenceEventPublisher, Infrastructure.Services.NatsPublisher>();
+builder.Services.AddScoped<IMessagePublisher, Infrastructure.Services.NatsPublisher>();
+
+// ── Database (EF Core) ───────────────────────────────────────────────────────
+var connectionString = config["Database:ConnectionString"] ?? "Data Source=/app/data/contazap.db";
+builder.Services.AddDbContext<Infrastructure.Data.AppDbContext>(options =>
+{
+    options.UseSqlite(connectionString);
+});
+builder.Services.AddScoped<IRealStateRepository, RealStateRepository>();
 
 // ── Application Services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<ConversationStateService>();
@@ -55,4 +65,5 @@ builder.Services.AddHttpClient<ILlmService, LlmService>();
 builder.Services.AddHostedService<Worker>();
 
 using IHost host = builder.Build();
+Console.WriteLine("[DEBUG] MessageWorker Program is running...");
 host.Run();

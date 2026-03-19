@@ -19,7 +19,7 @@
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="..\Application\Prompts\*.md">
+    <None Include="..\Application\Prompts\*.md">
       <Link>Prompts\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

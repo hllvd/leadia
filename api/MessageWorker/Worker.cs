@@ -71,22 +71,19 @@ public class Worker : BackgroundService
         // 2. Consume messages
         var consumer = await _js.GetConsumerAsync(StreamName, ConsumerName, stoppingToken);
 
-        await foreach (var msg in consumer.ConsumeAsync<JsonElement>(cancellationToken: stoppingToken))
+        await foreach (var msg in consumer.ConsumeAsync<string>(cancellationToken: stoppingToken))
         {
             try
             {
-                var eventData = msg.Data;
-
-                // If the message was received as a string (value kind String), parse it as a JSON object
-                if (eventData.ValueKind == JsonValueKind.String)
+                var json = msg.Data;
+                if (string.IsNullOrEmpty(json))
                 {
-                    var rawString = eventData.GetString();
-                    if (!string.IsNullOrEmpty(rawString))
-                    {
-                        using var doc = JsonDocument.Parse(rawString);
-                        eventData = doc.RootElement.Clone();
-                    }
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
                 }
+
+                using var doc = JsonDocument.Parse(json);
+                var eventData = doc.RootElement;
 
                 if (eventData.ValueKind != JsonValueKind.Object)
                 {
@@ -132,7 +129,7 @@ public class Worker : BackgroundService
                 _logger.LogInformation("Processing message {Hash} for conversation {ConvId}", normalized.MessageHash, normalized.ConversationId);
 
                 // Use a scope for the conversation service which might have scoped deps (like the repo)
-                using var scope = _serviceProvider.CreateScope();
+                await using var scope = _serviceProvider.CreateAsyncScope();
                 var convService = scope.ServiceProvider.GetRequiredService<ConversationStateService>();
                 var llmService  = scope.ServiceProvider.GetRequiredService<ILlmService>();
 
@@ -206,7 +203,8 @@ public class Worker : BackgroundService
 
                 foreach (var activity in toTrigger)
                 {
-                    await PerformAsyncAnalysisAndReply(activity.ConversationId, ct);
+                    _logger.LogInformation("Triggering analysis for {Id} (Inactivity: {S}s)", activity.ConversationId, (DateTimeOffset.UtcNow - activity.LastActivity).TotalSeconds);
+                    _ = Task.Run(() => PerformAsyncAnalysisAndReply(activity.ConversationId, ct), ct);
                 }
             }
             catch (Exception ex)
@@ -220,19 +218,20 @@ public class Worker : BackgroundService
     {
         try
         {
-            using var scope = _serviceProvider.CreateScope();
+            _logger.LogInformation("[LOUD] Starting analysis/reply flow for {ConvId}", conversationId);
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var convService = scope.ServiceProvider.GetRequiredService<ConversationStateService>();
-            var llmService = scope.ServiceProvider.GetRequiredService<ILlmService>();
-
-            _logger.LogInformation("Performing async analysis/reply for {ConvId}", conversationId);
+            var llmService  = scope.ServiceProvider.GetRequiredService<ILlmService>();
 
             // 1. Trigger the analysis of the buffer
             var llmContext = await convService.TriggerAnalysisAsync(conversationId, ct);
             if (!string.IsNullOrEmpty(llmContext))
             {
+                _logger.LogInformation("[LOUD] Sending context to LLM ({Len} chars)", llmContext.Length);
                 var llmResponse = await llmService.AnalyzeAsync(llmContext, ct);
                 if (llmResponse != null)
                 {
+                    _logger.LogInformation("[LOUD] LLM Analysis success. Summary: {Summary}", llmResponse.Summary);
                     await convService.ApplyLlmResultAsync(conversationId, llmResponse, ct);
                 }
             }
@@ -241,16 +240,11 @@ public class Worker : BackgroundService
             var state = await convService.GetStateAsync(conversationId, ct);
             if (state != null && state.Mode == Domain.Enums.ConversationMode.AgentAndListening)
             {
-                // We typically reply if the last message was from the customer.
-                // For simplicity, we'll check the current context.
+                _logger.LogInformation("[LOUD] Generating AI reply for {ConvId}", conversationId);
                 var welcomePrompt = await GetPromptAsync(Domain.Constants.PromptNames.BrokerSystem);
                 var reply = await llmService.ChatAsync(welcomePrompt, llmContext ?? state.RollingSummary, ct);
-                
                 if (!string.IsNullOrEmpty(reply))
                 {
-                    _logger.LogInformation("Async AI reply generated for {ConvId}", conversationId);
-                    // In a real app, you'd send this back to NATS as a reply event.
-                    // For now, let's just log it or persist it as a broker message.
                     var brokerMsg = new NormalizedMessage(
                         conversationId,
                         state.BrokerId,
@@ -258,15 +252,16 @@ public class Worker : BackgroundService
                         Domain.Enums.SenderType.Broker,
                         reply,
                         DateTimeOffset.UtcNow,
-                        Guid.NewGuid().ToString("N") // Dummy hash for reply
+                        Guid.NewGuid().ToString("N")
                     );
                     await convService.ProcessMessageAsync(brokerMsg, ct);
+                    _logger.LogInformation("[LOUD] AI reply sent: {Reply}", reply);
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during async analysis for {ConvId}", conversationId);
+            _logger.LogError(ex, "[LOUD] Error in PerformAsyncAnalysisAndReply for {ConvId}", conversationId);
         }
     }
 

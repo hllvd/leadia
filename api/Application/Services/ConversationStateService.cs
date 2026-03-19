@@ -120,9 +120,36 @@ public class ConversationStateService(
         await repository.UpsertAsync(state, ct);
 
         // Convert LlmResponse.Facts to FactUpdates + Filter by confidence >= 0.5
-        var factUpdates = llmResponse.Facts
-            .Select(kvp => new FactUpdate(kvp.Key, kvp.Value.Value?.ToString() ?? string.Empty, kvp.Value.Confidence))
-            .ToList();
+        // Map LLM keys to canonical FactKeys (case-insensitive)
+        var canonicalKeys = Domain.Constants.FactKeys.All.ToDictionary(k => k.ToLowerInvariant(), k => k);
+
+        var factUpdates = new List<FactUpdate>();
+        if (llmResponse.Facts != null)
+        {
+            foreach (var kvp in llmResponse.Facts)
+            {
+                var valStr = kvp.Value.ValueKind == System.Text.Json.JsonValueKind.String 
+                    ? kvp.Value.GetString() 
+                    : kvp.Value.GetRawText();
+                
+                // Try to find the exact key, or normalize (e.g., 'property_type' -> 'Property Type')
+                var normalizedInputKey = kvp.Key.Replace("_", " ").ToLowerInvariant();
+                var actualKey = canonicalKeys.TryGetValue(normalizedInputKey, out var cKey) ? cKey : kvp.Key;
+
+                // Safeguard: Skip facts that indicate "unknown" or "not specified"
+                var lowerVal = valStr?.ToLowerInvariant() ?? "";
+                if (lowerVal.Contains("não especificado") || 
+                    lowerVal.Contains("não informado") || 
+                    lowerVal.Contains("not specified") ||
+                    lowerVal == "null" ||
+                    string.IsNullOrWhiteSpace(valStr))
+                {
+                    continue;
+                }
+
+                factUpdates.Add(new FactUpdate(actualKey, valStr ?? "", 1.0));
+            }
+        }
 
         Console.WriteLine($"[DEBUG] LLM identified {factUpdates.Count} facts.");
         foreach (var f in factUpdates)
@@ -137,12 +164,14 @@ public class ConversationStateService(
         var merged   = FactMerger.Merge(existing, filtered, conversationId);
         
         Console.WriteLine($"[DEBUG] Merged result: {merged.Count} facts total.");
+        Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Merged {merged.Count} facts. Saving to DB...");
         await repository.UpsertFactsAsync(conversationId, merged, ct);
 
         // ── 2. Publish persistence events (Queues) ───────────────────────────
-        // These will be picked up by the PersistenceWorker for offloading
+        Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Publishing to NATS persistence...");
         await persistencePublisher.PublishSummaryAsync(conversationId, llmResponse.Summary, state.LastMessageHash, ct);
         await persistencePublisher.PublishFactsAsync(conversationId, merged, ct);
+        Console.WriteLine($"[LOUD] ApplyLlmResultAsync: COMPLETED for {conversationId}");
     }
 
     /// <summary>Returns current facts for a conversation.</summary>
@@ -177,6 +206,8 @@ public class ConversationStateService(
 
         var facts = await repository.GetFactsAsync(conversationId, ct);
         var llmContext = LlmContextBuilder.Build(state.RollingSummary, facts, buffer, string.Empty);
+        
+        Console.WriteLine($"[LOUD] TriggerAnalysisAsync: Built context ({llmContext.Length} chars) for {conversationId}");
 
         // Clear buffer
         state.BufferJson = "[]";

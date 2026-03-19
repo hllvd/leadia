@@ -14,21 +14,21 @@ CONTEXT PROVIDED:
 OUTPUT RULES:
 Return ONLY valid JSON with the following structure:
 {
-  "summary": "string - 1 to 3 sentences in PT-Br",
+  "summary": "string - 1 a 3 frases em PT-BR",
   "facts": {
-    "Fact Key": { "value": any, "confidence": number }
+    "ChaveDoFato": "Valor do fato em PT-BR"
   }
 }
 
 EXTRACTION RULES:
 - **No Assumptions**: Only extract facts explicitly stated. NEVER guess.
+- **Omit Unknowns**: Se um fato não foi mencionado, NÃO O INCLUA no JSON. Não use "Não especificado", "Nulo" ou vazio. Apenas omita a chave!
 - **Merge & Refine**: If a new value is more specific (e.g., "Apartment" vs "Property"), update it.
 - **Handle Contradictions**: If the user changes their mind, update the fact and reset confidence.
 - **Consistent Keys**: Use these standard keys in English: 
   `Intent`, `Property Type`, `Location`, `Budget`, `Min Price`, `Max Price`, `Bedrooms`, `Garage`, `Approved Financing`, `Purpose`, `Purchase Timeline`, `Viewing Interest`, `Mentioned Property`, `Lead Score`, `Children`, `Pet`.
 - **Normalization**: Normalize values (e.g., numbers for currency/bedrooms, PT-Br strings for types).
-- **Confidence**: 0.0 to 1.0. Use 0.9+ for explicit facts, 0.6+ for clear implications.
-- **Language**: Summary and fact values (except keys) must be in **Portuguese (PT-Br)**.
+- **Language**: Summary and fact values (except keys) must be in **Portuguese (PT-BR)**.
 
 STRICTNESS:
 - JSON output only. 

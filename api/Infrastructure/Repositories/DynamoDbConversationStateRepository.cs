@@ -55,7 +55,8 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             BufferJson = item.GetValueOrDefault("buffer_json")?.S ?? "[]",
             BufferChars = item.ContainsKey("buffer_chars") ? int.Parse(item["buffer_chars"].N) : 0,
             BrokerId = item.GetValueOrDefault("broker_id")?.S ?? "",
-            CustomerId = item.GetValueOrDefault("customer_id")?.S ?? ""
+            CustomerId = item.GetValueOrDefault("customer_id")?.S ?? "",
+            Mode = item.ContainsKey("mode") ? (ConversationMode)int.Parse(item["mode"].N) : ConversationMode.OnlyListening
         };
     }
 
@@ -75,7 +76,8 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
                 { "buffer_json", new AttributeValue { S = state.BufferJson } },
                 { "buffer_chars", new AttributeValue { N = state.BufferChars.ToString() } },
                 { "broker_id", new AttributeValue { S = state.BrokerId } },
-                { "customer_id", new AttributeValue { S = state.CustomerId } }
+                { "customer_id", new AttributeValue { S = state.CustomerId } },
+                { "mode", new AttributeValue { N = ((int)state.Mode).ToString() } }
             }
         };
 

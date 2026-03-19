@@ -44,10 +44,12 @@ services:
     restart: unless-stopped
     environment:
       - NATS_URL=nats://nats:4222
+      - Database__ConnectionString=Data Source=/app/data/secondbrain.db
       # - TEST=1
     volumes:
       - ./config.json:/app/config.json:ro
       - ./config.local.json:/app/config.local.json:ro
+      - sqlite-data:/app/data
     depends_on:
       nats:
         condition: service_healthy

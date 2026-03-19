@@ -18,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 // ── Configuration ──────────────────────────────────────────────────────────
 builder.Configuration.AddJsonFile("config.json", optional: false, reloadOnChange: true);
 builder.Configuration.AddJsonFile("config.local.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddEnvironmentVariables();
 var config = builder.Configuration;
 
 bool isLocal = args.Contains("--local")
