@@ -114,13 +114,45 @@ function ChatWindow({ title, color, messages, input, setInput, onSend, loading, 
   )
 }
 
-function FactsPanel({ facts, summary, allFacts, factLabels }) {
+function CollapsibleSection({ title, count, color, defaultOpen = true, children }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ 
+          padding: '12px 16px', 
+          cursor: 'pointer', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          background: 'var(--surface2)',
+          borderBottom: isOpen ? '1px solid var(--border)' : 'none'
+        }}
+      >
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {title} ({count})
+        </div>
+        <div style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', fontSize: '0.8rem', color: 'var(--muted)' }}>
+          ▼
+        </div>
+      </div>
+      {isOpen && (
+        <div style={{ padding: 16 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FactsPanel({ facts, summary, allFacts, factLabels, events }) {
   const detected = allFacts.filter(k => facts[k] !== undefined)
   const missing  = allFacts.filter(k => facts[k] === undefined)
 
   return (
     <div style={{
-      width: 260,
+      width: 280,
       flexShrink: 0,
       display: 'flex',
       flexDirection: 'column',
@@ -136,10 +168,7 @@ function FactsPanel({ facts, summary, allFacts, factLabels }) {
         </p>
       </div>
 
-      <div className="card" style={{ padding: 16 }}>
-        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-          ✅ Detectados ({detected.length})
-        </div>
+      <CollapsibleSection title="✅ Detectados" count={detected.length} color="var(--green)">
         {detected.length === 0 ? (
           <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Nenhum ainda</p>
         ) : (
@@ -168,12 +197,9 @@ function FactsPanel({ facts, summary, allFacts, factLabels }) {
             ))}
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
-      <div className="card" style={{ padding: 16 }}>
-        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-          ⏳ Não detectados ({missing.length})
-        </div>
+      <CollapsibleSection title="⏳ Não detectados" count={missing.length} color="var(--yellow)" defaultOpen={false}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {missing.map(k => (
             <div key={k} style={{
@@ -187,7 +213,35 @@ function FactsPanel({ facts, summary, allFacts, factLabels }) {
             </div>
           ))}
         </div>
-      </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="📡 Eventos" count={events.length} color="#3b82f6" defaultOpen={true}>
+        {events.length === 0 ? (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Nenhum evento detectado ainda</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {events.map((e, i) => (
+              <div key={i} style={{ 
+                fontSize: '0.82rem', 
+                borderBottom: i < events.length - 1 ? '1px solid var(--border)' : 'none',
+                paddingBottom: i < events.length - 1 ? 8 : 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>{e.type}</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--muted)' }}>{e.actor}</span>
+                </div>
+                <div style={{ color: 'var(--text)', opacity: 0.8 }}>{e.description}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: 2 }}>
+                  {new Date(e.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
     </div>
   )
 }
@@ -198,6 +252,7 @@ export default function ChatLab() {
   const [messages, setMessages] = useState([])
   const [facts, setFacts]       = useState({})
   const [summary, setSummary]   = useState('')
+  const [events, setEvents]     = useState([])
   const [allFacts, setAllFacts] = useState([])
   const [factLabels, setFactLabels] = useState({})
 
@@ -237,6 +292,9 @@ export default function ChatLab() {
               : data.facts
             setFacts(factsObj)
           }
+          if (data.events) {
+            setEvents(data.events)
+          }
           if (data.messages?.length) {
             setMessages(prev => {
               if (prev.length !== data.messages.length) return data.messages
@@ -264,6 +322,7 @@ export default function ChatLab() {
       if (data.reply) push('broker', data.reply)
       if (data.facts?.length)  setFacts(Object.fromEntries(data.facts.map(f => [f.name, f])))
       if (data.summary)        setSummary(data.summary)
+      if (data.events)         setEvents(data.events)
     } catch (err) {
       push('broker', `❌ Erro: ${err.message}`)
     } finally {
@@ -281,6 +340,7 @@ export default function ChatLab() {
       const data = await sendMessage(brokerNumber, customerNumber, text, 'broker')
       if (data.facts?.length)  setFacts(Object.fromEntries(data.facts.map(f => [f.name, f])))
       if (data.summary)        setSummary(data.summary)
+      if (data.events)         setEvents(data.events)
     } catch (err) {
       push('broker', `❌ Erro: ${err.message}`)
     } finally {
@@ -322,6 +382,7 @@ export default function ChatLab() {
               setMessages([])
               setFacts({})
               setSummary('')
+              setEvents([])
             }}
           >
             🔄 Reset
@@ -350,7 +411,7 @@ export default function ChatLab() {
           loading={loadingBroker}
           side="broker"
         />
-        <FactsPanel facts={facts} summary={summary} allFacts={allFacts} factLabels={factLabels} />
+        <FactsPanel facts={facts} summary={summary} allFacts={allFacts} factLabels={factLabels} events={events} />
       </div>
     </div>
   )
