@@ -129,6 +129,7 @@ public static class ChatEndpoints
             var facts    = await convService.GetFactsAsync(conversationId, ct);
             var summary  = await convService.GetSummaryAsync(conversationId, ct);
             var messages = await convService.GetMessagesAsync(conversationId, ct);
+            var events   = await convService.GetEventsAsync(conversationId, ct);
             
             return Results.Ok(new
             {
@@ -138,6 +139,12 @@ public static class ChatEndpoints
                     sender = m.SenderType.ToString().ToLower(), 
                     text = m.Text, 
                     timestamp = m.Timestamp 
+                }),
+                events = events.Select(e => new {
+                    type = e.Type,
+                    actor = e.Actor,
+                    description = e.Description,
+                    timestamp = e.Timestamp
                 })
             });
         });

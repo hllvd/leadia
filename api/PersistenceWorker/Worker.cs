@@ -106,6 +106,9 @@ public class Worker : BackgroundService
                     case "persist.facts":
                         await HandlePersistFactsAsync(payload, stoppingToken);
                         break;
+                    case "persist.event":
+                        await HandlePersistEventAsync(payload, stoppingToken);
+                        break;
                     default:
                         _logger.LogWarning("Unknown persistence event type: {Type}", type);
                         break;
@@ -119,6 +122,32 @@ public class Worker : BackgroundService
                 // NATS will re-deliver after AckWait (60s)
             }
         }
+    }
+
+    protected async Task HandlePersistEventAsync(JsonElement payload, CancellationToken ct)
+    {
+        var convId = payload.GetProperty("conversation_id").GetString();
+        var type = payload.GetProperty("type").GetString();
+        var actor = payload.GetProperty("actor").GetString();
+        var description = payload.GetProperty("description").GetString();
+        var timestamp = payload.GetProperty("timestamp").GetString();
+
+        var request = new PutItemRequest
+        {
+            TableName = _tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                { _sortKey, new AttributeValue { S = $"EVT#{type}#{timestamp}" } },
+                { "type", new AttributeValue { S = type ?? "" } },
+                { "actor", new AttributeValue { S = actor ?? "" } },
+                { "description", new AttributeValue { S = description ?? "" } },
+                { "timestamp", new AttributeValue { S = timestamp ?? "" } },
+                { "conversation_id", new AttributeValue { S = convId ?? "" } }
+            }
+        };
+
+        await _db.PutItemAsync(request, ct);
     }
 
     protected async Task HandlePersistMessageAsync(JsonElement payload, CancellationToken ct)

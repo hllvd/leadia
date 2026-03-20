@@ -9,4 +9,10 @@ namespace Application.DTOs;
 /// </summary>
 public record LlmResponse(
     [property: JsonPropertyName("summary")] string Summary,
-    [property: JsonPropertyName("facts")] Dictionary<string, JsonElement>? Facts);
+    [property: JsonPropertyName("facts")] Dictionary<string, JsonElement>? Facts,
+    [property: JsonPropertyName("events")] List<LlmEvent>? Events);
+
+public record LlmEvent(
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("actor")] string Actor,
+    [property: JsonPropertyName("description")] string Description);

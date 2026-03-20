@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RealStateAgency>   RealStateAgencies  => Set<RealStateAgency>();
     public DbSet<RealStateBroker>   RealStateBrokers   => Set<RealStateBroker>();
     public DbSet<BrokerData>        BrokersData        => Set<BrokerData>();
+    public DbSet<ConversationEvent> ConversationEvents => Set<ConversationEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -126,6 +127,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany()
              .HasForeignKey(e => e.BrokerId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── ConversationEvent ──
+        modelBuilder.Entity<ConversationEvent>(b =>
+        {
+            b.HasKey(e => new { e.ConversationId, e.Timestamp, e.Type });
         });
     }
 }

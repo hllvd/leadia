@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Application.Interfaces;
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 
@@ -151,5 +152,50 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             DateTimeOffset.Parse(item["timestamp"].S),
             item[_sortKey].S.Replace("LAST#", "")
         )).OrderBy(m => m.Timestamp).ToList();
+    }
+
+    public async Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(string conversationId, CancellationToken ct = default)
+    {
+        var request = new QueryRequest
+        {
+            TableName = _tableName,
+            KeyConditionExpression = $"{_primaryKey} = :pk AND begins_with({_sortKey}, :sk_prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                { ":pk", new AttributeValue { S = $"CONV#{conversationId}" } },
+                { ":sk_prefix", new AttributeValue { S = "EVT#" } }
+            }
+        };
+
+        var response = await _db.QueryAsync(request, ct);
+        return response.Items.Select(item => new ConversationEvent
+        {
+            ConversationId = conversationId,
+            Type = item["type"].S,
+            Actor = item["actor"].S,
+            Description = item["description"].S,
+            Timestamp = item["timestamp"].S
+        }).OrderBy(e => e.Timestamp).ToList();
+    }
+
+    public async Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default)
+    {
+        foreach (var @event in events)
+        {
+            var request = new PutItemRequest
+            {
+                TableName = _tableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    { _primaryKey, new AttributeValue { S = $"CONV#{conversationId}" } },
+                    { _sortKey, new AttributeValue { S = $"EVT#{@event.Type}#{@event.Timestamp}" } },
+                    { "type", new AttributeValue { S = @event.Type } },
+                    { "actor", new AttributeValue { S = @event.Actor } },
+                    { "description", new AttributeValue { S = @event.Description } },
+                    { "timestamp", new AttributeValue { S = @event.Timestamp } }
+                }
+            };
+            await _db.PutItemAsync(request, ct);
+        }
     }
 }

@@ -21,4 +21,10 @@ public interface IConversationStateRepository
 
     /// <summary>Gets all messages for a conversation.</summary>
     Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default);
+
+    /// <summary>Gets all events for a conversation, sorted by timestamp.</summary>
+    Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(string conversationId, CancellationToken ct = default);
+
+    /// <summary>Appends events to a conversation (append-only).</summary>
+    Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default);
 }

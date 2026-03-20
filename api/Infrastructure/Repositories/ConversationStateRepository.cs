@@ -66,6 +66,22 @@ public class ConversationStateRepository(AppDbContext db) : IConversationStateRe
         await db.SaveChangesAsync(ct);
     }
 
-    public Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
+    public async Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default)
+        => []; // Existing (not yet implemented for SQLite)
+
+    public async Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(string conversationId, CancellationToken ct = default)
+        => await db.ConversationEvents
+                   .Where(e => e.ConversationId == conversationId)
+                   .OrderBy(e => e.Timestamp)
+                   .ToListAsync(ct);
+
+    public async Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default)
+    {
+        // Simple append-only for events in SQLite as well
+        foreach (var @event in events)
+        {
+            db.ConversationEvents.Add(@event);
+        }
+        await db.SaveChangesAsync(ct);
+    }
 }

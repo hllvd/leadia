@@ -85,11 +85,6 @@ public class ConversationStateService(
         state.LastMessageTimestamp  = msg.Timestamp;
         state.LastActivityTimestamp = DateTimeOffset.UtcNow;
 
-        // ── 4. Update state fields ────────────────────────────────────────────
-        state.LastMessageHash       = msg.MessageHash;
-        state.LastMessageTimestamp  = msg.Timestamp;
-        state.LastActivityTimestamp = DateTimeOffset.UtcNow;
-
         state.BufferJson  = JsonSerializer.Serialize(buffer);
         state.BufferChars = bufferChars;
 
@@ -171,6 +166,29 @@ public class ConversationStateService(
         Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Publishing to NATS persistence...");
         await persistencePublisher.PublishSummaryAsync(conversationId, llmResponse.Summary, state.LastMessageHash, ct);
         await persistencePublisher.PublishFactsAsync(conversationId, merged, ct);
+
+        // ── 3. Handle Events ────────────────────────────────────────────────
+        if (llmResponse.Events != null && llmResponse.Events.Count > 0)
+        {
+            var eventTimestamp = DateTimeOffset.UtcNow.ToString("O");
+            var convEvents = llmResponse.Events.Select(e => new ConversationEvent
+            {
+                ConversationId = conversationId,
+                Type = e.Type,
+                Actor = e.Actor,
+                Description = e.Description,
+                Timestamp = eventTimestamp
+            }).ToList();
+
+            Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Processing {convEvents.Count} events for {conversationId}");
+            await repository.UpsertEventsAsync(conversationId, convEvents, ct);
+            
+            foreach (var @event in convEvents)
+            {
+                await persistencePublisher.PublishEventAsync(@event, ct);
+            }
+        }
+
         Console.WriteLine($"[LOUD] ApplyLlmResultAsync: COMPLETED for {conversationId}");
     }
 
@@ -221,4 +239,9 @@ public class ConversationStateService(
     public async Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(
         string conversationId, CancellationToken ct = default)
         => await repository.GetMessagesAsync(conversationId, ct);
+
+    /// <summary>Returns all events for a conversation.</summary>
+    public async Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(
+        string conversationId, CancellationToken ct = default)
+        => await repository.GetEventsAsync(conversationId, ct);
 }
