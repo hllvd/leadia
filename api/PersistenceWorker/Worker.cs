@@ -6,6 +6,9 @@ using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using Application.Interfaces;
+using Domain.Entities;
+using Domain.Enums;
 using System.Text.Json;
 
 namespace PersistenceWorker;
@@ -19,22 +22,26 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly INatsJSContext _js;
     private readonly IAmazonDynamoDB _db;
+    private readonly IMessageStorage _s3Storage;
     private readonly string _tableName;
     private readonly string _primaryKey;
     private readonly string _sortKey;
+    private readonly int _flushIntervalMinutes;
 
     private const string StreamName = "persistence_events";
     private const string ConsumerName = "persistence-worker-group";
 
-    public Worker(ILogger<Worker> logger, INatsConnection connection, IAmazonDynamoDB db, IConfiguration config, INatsJSContext? js = null)
+    public Worker(ILogger<Worker> logger, INatsConnection connection, IAmazonDynamoDB db, IMessageStorage s3Storage, IConfiguration config, INatsJSContext? js = null)
     {
         _logger = logger;
         _js = js ?? new NatsJSContext(connection);
         _db = db;
+        _s3Storage = s3Storage;
         bool isTest = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEST"));
         _tableName = isTest ? "crm_memory" : (config["DynamoDB:Table"] ?? "imobos");
         _primaryKey = config["DynamoDB:PrimaryKey"] ?? "PK";
         _sortKey = config["DynamoDB:SortKey"] ?? "SK";
+        _flushIntervalMinutes = int.TryParse(config["S3:FlushIntervalMinutes"], out var val) ? val : 10;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -109,6 +116,9 @@ public class Worker : BackgroundService
                     case "persist.event":
                         await HandlePersistEventAsync(payload, stoppingToken);
                         break;
+                    case "flush.messages":
+                        await HandleFlushMessagesAsync(payload, stoppingToken);
+                        break;
                     default:
                         _logger.LogWarning("Unknown persistence event type: {Type}", type);
                         break;
@@ -138,7 +148,7 @@ public class Worker : BackgroundService
             Item = new Dictionary<string, AttributeValue>
             {
                 { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
-                { _sortKey, new AttributeValue { S = $"EVT#{type}#{timestamp}" } },
+                { _sortKey, new AttributeValue { S = $"EVT#{timestamp}#{type}" } },
                 { "type", new AttributeValue { S = type ?? "" } },
                 { "actor", new AttributeValue { S = actor ?? "" } },
                 { "description", new AttributeValue { S = description ?? "" } },
@@ -153,28 +163,59 @@ public class Worker : BackgroundService
     protected async Task HandlePersistMessageAsync(JsonElement payload, CancellationToken ct)
     {
         var convId = payload.GetProperty("conversation_id").GetString();
+        if (string.IsNullOrEmpty(convId)) return;
+
         var ts = payload.GetProperty("timestamp").GetString();
-        var sender = payload.GetProperty("sender_type").ValueKind == JsonValueKind.String 
-                     ? payload.GetProperty("sender_type").GetString() 
-                     : payload.GetProperty("sender_type").GetInt32().ToString();
-        var text = payload.GetProperty("text").GetString();
+        var senderRaw = payload.GetProperty("sender_type");
+        var senderStr = senderRaw.ValueKind == JsonValueKind.String ? senderRaw.GetString() : senderRaw.GetInt32().ToString();
+        var text = payload.GetProperty("text").GetString() ?? "";
         var hash = payload.GetProperty("hash").GetString() ?? "";
 
-        // 1. Save message row
-        var messageRequest = new PutItemRequest
+        var newMessage = new 
+        {
+            conversation_id = convId,
+            timestamp = ts,
+            sender = senderStr,
+            text = text,
+            hash = hash
+        };
+
+        // 1. Append message to BUFF# JSON array in DynamoDB using UpdateItem
+        var buffRequest = new UpdateItemRequest
         {
             TableName = _tableName,
-            Item = new Dictionary<string, AttributeValue>
+            Key = new Dictionary<string, AttributeValue>
             {
                 { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
-                { _sortKey, new AttributeValue { S = $"LAST#{hash}" } },
-                { "sender", new AttributeValue { S = sender } },
-                { "text", new AttributeValue { S = text ?? "" } },
-                { "hash", new AttributeValue { S = hash } },
-                { "timestamp", new AttributeValue { S = ts ?? "" } }
-            }
+                { _sortKey, new AttributeValue { S = "BUFF#" } }
+            },
+            UpdateExpression = "SET messages = list_append(if_not_exists(messages, :empty_list), :msg), is_buffering = :true",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                { ":msg", new AttributeValue { L = [ new AttributeValue { S = JsonSerializer.Serialize(newMessage) } ] } },
+                { ":empty_list", new AttributeValue { L = [] } },
+                { ":true", new AttributeValue { BOOL = true } }
+            },
+            ReturnValues = ReturnValue.UPDATED_OLD
         };
-        await _db.PutItemAsync(messageRequest, ct);
+
+        var buffResponse = await _db.UpdateItemAsync(buffRequest, ct);
+
+        // If this was the first message in the buffer (is_buffering was not true before)
+        bool wasBuffering = buffResponse.Attributes.TryGetValue("is_buffering", out var isBufferingAttr) && isBufferingAttr.BOOL;
+        if (!wasBuffering)
+        {
+            // Publish delayed NATS event
+            var flushPayload = new { type = "flush.messages", payload = new { conversation_id = convId } };
+            var natsDelay = $"{_flushIntervalMinutes}m";
+            
+            var headers = new NatsHeaders { { "Nats-Delay", natsDelay } };
+            var json = JsonSerializer.Serialize(flushPayload);
+            
+            // We need to publish to JetStream. Since we only injected INatsJSContext, we can use it.
+            await _js.PublishAsync("persist.flush", json, headers: headers, cancellationToken: ct);
+            _logger.LogInformation("Started {Delay} delay before flushing messages for conversation {ConversationId}", natsDelay, convId);
+        }
 
         // 2. Update metadata (SUM#) row with last_message_id and last_updated
         // Also set first_message_id if it doesn't exist
@@ -240,7 +281,7 @@ public class Worker : BackgroundService
                 Item = new Dictionary<string, AttributeValue>
                 {
                     { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
-                    { _sortKey, new AttributeValue { S = $"FACTS#{name}" } },
+                    { _sortKey, new AttributeValue { S = $"FACT#{name}" } },
                     { "value", new AttributeValue { S = value } },
                     { "confidence", new AttributeValue { N = confidence.ToString(System.Globalization.CultureInfo.InvariantCulture) } },
                     { "updated_at", new AttributeValue { S = updatedAt ?? "" } }
@@ -248,5 +289,111 @@ public class Worker : BackgroundService
             };
             await _db.PutItemAsync(request, ct);
         }
+    }
+
+    protected async Task HandleFlushMessagesAsync(JsonElement payload, CancellationToken ct)
+    {
+        var convId = payload.GetProperty("conversation_id").GetString();
+        if (string.IsNullOrEmpty(convId)) return;
+
+        // 1. Get the BUFF# record
+        var getBuffReq = new GetItemRequest
+        {
+            TableName = _tableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                { _sortKey, new AttributeValue { S = "BUFF#" } }
+            }
+        };
+        var buffResp = await _db.GetItemAsync(getBuffReq, ct);
+        
+        if (!buffResp.IsItemSet || !buffResp.Item.TryGetValue("messages", out var messagesAttr) || messagesAttr.L.Count == 0)
+        {
+            _logger.LogInformation("No messages to flush for conversation {ConversationId}", convId);
+            return;
+        }
+
+        // 2. Parse messages
+        var messages = new List<NormalizedMessage>();
+        foreach (var attr in messagesAttr.L)
+        {
+            try 
+            {
+                var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(attr.S);
+                if (dict == null) continue;
+
+                var senderEnum = Enum.Parse<SenderType>(dict["sender"]);
+                messages.Add(new NormalizedMessage(
+                    dict["conversation_id"],
+                    "", // broker_id
+                    "", // customer_id
+                    senderEnum,
+                    dict["text"],
+                    DateTimeOffset.Parse(dict["timestamp"]),
+                    dict["hash"]
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing buffered message for conversation {ConversationId}", convId);
+            }
+        }
+
+        if (messages.Count == 0) return;
+
+        // 3. Get / Increment PART#LSN
+        var getPartReq = new GetItemRequest
+        {
+            TableName = _tableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                { _sortKey, new AttributeValue { S = "PART#LSN" } }
+            }
+        };
+        var partResp = await _db.GetItemAsync(getPartReq, ct);
+        int currentPart = partResp.IsItemSet && partResp.Item.ContainsKey("value") 
+                          ? int.Parse(partResp.Item["value"].N) 
+                          : 1;
+
+        // 4. Upload to S3
+        await _s3Storage.StoreMessagesAsync(convId, currentPart, messages, ct);
+
+        // 5. Delete BUFF# securely and Update PART#LSN
+        var batchWrite = new TransactWriteItemsRequest
+        {
+            TransactItems = new List<TransactWriteItem>
+            {
+                new TransactWriteItem
+                {
+                    Delete = new Delete
+                    {
+                        TableName = _tableName,
+                        Key = new Dictionary<string, AttributeValue>
+                        {
+                            { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                            { _sortKey, new AttributeValue { S = "BUFF#" } }
+                        }
+                    }
+                },
+                new TransactWriteItem
+                {
+                    Put = new Put
+                    {
+                        TableName = _tableName,
+                        Item = new Dictionary<string, AttributeValue>
+                        {
+                            { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
+                            { _sortKey, new AttributeValue { S = "PART#LSN" } },
+                            { "value", new AttributeValue { N = (currentPart + 1).ToString() } }
+                        }
+                    }
+                }
+            }
+        };
+        await _db.TransactWriteItemsAsync(batchWrite, ct);
+
+        _logger.LogInformation("Successfully flushed {Count} messages to S3 for conversation {ConversationId} as part {Part}", messages.Count, convId, currentPart);
     }
 }

@@ -75,6 +75,26 @@ public class ConversationStateRepository(AppDbContext db) : IConversationStateRe
                    .OrderBy(e => e.Timestamp)
                    .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<ConversationEvent>> GetLatestEventsAsync(string conversationId, int limit, CancellationToken ct = default)
+        => await db.ConversationEvents
+                   .Where(e => e.ConversationId == conversationId)
+                   .OrderByDescending(e => e.Timestamp)
+                   .Take(limit)
+                   .ToListAsync(ct);
+
+    public async Task<PagedTimelineResult> GetTimelineAsync(string conversationId, int limit = 50, string? exclusiveStartKey = null, bool forward = true, CancellationToken ct = default)
+    {
+        // Simple implementation for SQLite (events only for now)
+        var evts = await db.ConversationEvents
+                   .Where(e => e.ConversationId == conversationId)
+                   .OrderBy(e => e.Timestamp)
+                   .Take(limit)
+                   .ToListAsync(ct);
+        
+        var items = evts.Select(e => new TimelineItem(e.Type, e, DateTimeOffset.Parse(e.Timestamp))).ToList();
+        return new PagedTimelineResult(items, null);
+    }
+
     public async Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default)
     {
         // Simple append-only for events in SQLite as well

@@ -45,6 +45,12 @@
     "PrimaryKey": "GSI1PK",
     "SortKey": "GSI1SK"
   },
+  "S3": {
+    "AccessKey": "---REDICTED---",
+    "SecretKey": "---REDICTED---",
+    "Region": "us-east-1",
+    "Bucket": "---REDICTED---"
+  },
   "LLM": {
     "Model": "deepseek-chat",
     "BaseUrl": "https://api.deepseek.com/v1/",

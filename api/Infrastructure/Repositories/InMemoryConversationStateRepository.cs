@@ -43,6 +43,23 @@ public class InMemoryConversationStateRepository : IConversationStateRepository
         return Task.FromResult<IReadOnlyList<ConversationEvent>>(evts.OrderBy(e => e.Timestamp).ToList());
     }
 
+    public Task<IReadOnlyList<ConversationEvent>> GetLatestEventsAsync(string conversationId, int limit, CancellationToken ct = default)
+    {
+        var evts = _events.GetValueOrDefault(conversationId) ?? [];
+        return Task.FromResult<IReadOnlyList<ConversationEvent>>(evts.OrderByDescending(e => e.Timestamp).Take(limit).ToList());
+    }
+
+    public Task<PagedTimelineResult> GetTimelineAsync(string conversationId, int limit = 50, string? exclusiveStartKey = null, bool forward = true, CancellationToken ct = default)
+    {
+        // Simple in-memory mock timeline (only events for now)
+        var evts = _events.GetValueOrDefault(conversationId) ?? [];
+        var items = evts.Select(e => new TimelineItem(e.Type, e, DateTimeOffset.Parse(e.Timestamp)))
+                        .OrderBy(x => x.Timestamp)
+                        .Take(limit)
+                        .ToList();
+        return Task.FromResult(new PagedTimelineResult(items, null));
+    }
+
     public Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default)
     {
         if (!_events.TryGetValue(conversationId, out var existing))

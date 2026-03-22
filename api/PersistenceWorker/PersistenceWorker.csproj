@@ -17,4 +17,12 @@
     <ProjectReference Include="..\Application\Application.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
+
+  <Target Name="CheckS3Config" BeforeTargets="Build">
+    <PropertyGroup>
+      <ConfigFile>../../config.json</ConfigFile>
+      <S3ConfigFound Condition="Exists('$(ConfigFile)')">$( [System.IO.File]::ReadAllText($(ConfigFile)).Contains('"S3"') )</S3ConfigFound>
+    </PropertyGroup>
+    <Warning Condition="'$(S3ConfigFound)' != 'True'" Text="S3 configuration is missing in config.json. S3 message storage will be disabled at runtime." />
+  </Target>
 </Project>

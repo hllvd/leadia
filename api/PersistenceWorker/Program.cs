@@ -1,7 +1,10 @@
 using Amazon.DynamoDBv2;
+using Application.Interfaces;
+using Infrastructure.Services;
 using PersistenceWorker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -36,6 +39,13 @@ builder.Services.AddSingleton<IAmazonDynamoDB>(sp =>
             cfg.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(region);
         return new AmazonDynamoDBClient(accessKey, secretKey, cfg);
     }
+});
+
+builder.Services.AddSingleton<IMessageStorage>(sp => 
+{
+    var logger = sp.GetRequiredService<ILogger<S3MessageStorage>>();
+    var config = sp.GetRequiredService<IConfiguration>();
+    return new S3MessageStorage(logger, config);
 });
 
 // ── Background Worker ────────────────────────────────────────────────────────
