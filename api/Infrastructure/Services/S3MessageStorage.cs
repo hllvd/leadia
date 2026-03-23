@@ -1,6 +1,7 @@
 using Amazon.S3;
 using Amazon.S3.Model;
 using Application.Interfaces;
+using Application.Services;
 using Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -52,11 +53,11 @@ public class S3MessageStorage : IMessageStorage
     {
         if (!_enabled)
         {
-            _logger.LogWarning("Skipping S3 storage for conversation {ConversationId} (Part {Part}) because S3 is disabled.", conversationId, part);
+            _logger.LogError("CRITICAL: S3 Message Storage is DISABLED. Bucket or AccessKey not configured. Skipping upload for {ConversationId}.", conversationId);
             return;
         }
 
-        var fileName = $"{conversationId}+part-{part}.json";
+        var fileName = MessageNormalizer.GetS3FileName(conversationId, part);
         var json = JsonSerializer.Serialize(messages, new JsonSerializerOptions { WriteIndented = true });
 
         try

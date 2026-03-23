@@ -192,8 +192,8 @@ public class Worker : BackgroundService
             UpdateExpression = "SET messages = list_append(if_not_exists(messages, :empty_list), :msg), is_buffering = :true",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
-                { ":msg", new AttributeValue { L = [ new AttributeValue { S = JsonSerializer.Serialize(newMessage) } ] } },
-                { ":empty_list", new AttributeValue { L = [] } },
+                { ":msg", new AttributeValue { L = new List<AttributeValue> { new AttributeValue { S = JsonSerializer.Serialize(newMessage) } } } },
+                { ":empty_list", new AttributeValue { L = new List<AttributeValue> { new AttributeValue { S = "__EMPTY_BUFFER__" } } } },
                 { ":true", new AttributeValue { BOOL = true } }
             },
             ReturnValues = ReturnValue.UPDATED_OLD
@@ -318,12 +318,19 @@ public class Worker : BackgroundService
         var messages = new List<NormalizedMessage>();
         foreach (var attr in messagesAttr.L)
         {
+            if (attr.S == "__EMPTY_BUFFER__") continue;
+
             try 
             {
                 var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(attr.S);
                 if (dict == null) continue;
 
-                var senderEnum = Enum.Parse<SenderType>(dict["sender"]);
+                // Support both string ("Customer") and numeric ("1") sender representation
+                var senderStr = dict["sender"];
+                var senderEnum = int.TryParse(senderStr, out var senderInt) 
+                                 ? (SenderType)senderInt 
+                                 : Enum.Parse<SenderType>(senderStr, ignoreCase: true);
+
                 messages.Add(new NormalizedMessage(
                     dict["conversation_id"],
                     "", // broker_id

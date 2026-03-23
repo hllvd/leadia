@@ -23,6 +23,7 @@ public class Worker : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly Dictionary<string, ConversationActivity> _activeConversations = new();
     private readonly object _lock = new();
+    private readonly IConfiguration _configuration; // Added IConfiguration field
 
     private record ConversationActivity(string ConversationId)
     {
@@ -31,11 +32,12 @@ public class Worker : BackgroundService
         public int MessageCount { get; set; } = 1;
     }
 
-    public Worker(ILogger<Worker> logger, INatsConnection connection, IServiceProvider serviceProvider, INatsJSContext? js = null)
+    public Worker(ILogger<Worker> logger, INatsConnection connection, IServiceProvider serviceProvider, IConfiguration configuration, INatsJSContext? js = null)
     {
         _logger = logger;
         _js = js ?? new NatsJSContext(connection);
         _serviceProvider = serviceProvider;
+        _configuration = configuration; // Initialized IConfiguration
     }
 
     private const string StreamName = "messages";
@@ -218,7 +220,8 @@ public class Worker : BackgroundService
     {
         try
         {
-            _logger.LogInformation("[LOUD] Starting analysis/reply flow for {ConvId}", conversationId);
+            var debug = _configuration["LOG_DEBUG"]?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false;
+            if (debug) _logger.LogInformation("[LOUD] Starting analysis/reply flow for {ConvId}", conversationId);
             await using var scope = _serviceProvider.CreateAsyncScope();
             var convService = scope.ServiceProvider.GetRequiredService<ConversationStateService>();
             var llmService  = scope.ServiceProvider.GetRequiredService<ILlmService>();
@@ -227,11 +230,11 @@ public class Worker : BackgroundService
             var llmContext = await convService.TriggerAnalysisAsync(conversationId, ct);
             if (!string.IsNullOrEmpty(llmContext))
             {
-                _logger.LogInformation("[LOUD] Sending context to LLM ({Len} chars)", llmContext.Length);
+                if (debug) _logger.LogInformation("[LOUD] Sending context to LLM ({Len} chars)", llmContext.Length);
                 var llmResponse = await llmService.AnalyzeAsync(llmContext, ct);
                 if (llmResponse != null)
                 {
-                    _logger.LogInformation("[LOUD] LLM Analysis success. Summary: {Summary}", llmResponse.Summary);
+                    if (debug) _logger.LogInformation("[LOUD] LLM Analysis success. Summary: {Summary}", llmResponse.Summary);
                     await convService.ApplyLlmResultAsync(conversationId, llmResponse, ct);
                 }
             }
@@ -240,7 +243,7 @@ public class Worker : BackgroundService
             var state = await convService.GetStateAsync(conversationId, ct);
             if (state != null && state.Mode == Domain.Enums.ConversationMode.AgentAndListening)
             {
-                _logger.LogInformation("[LOUD] Generating AI reply for {ConvId}", conversationId);
+                if (debug) _logger.LogInformation("[LOUD] Generating AI reply for {ConvId}", conversationId);
                 var welcomePrompt = await GetPromptAsync(Domain.Constants.PromptNames.BrokerSystem);
                 var reply = await llmService.ChatAsync(welcomePrompt, llmContext ?? state.RollingSummary, ct);
                 if (!string.IsNullOrEmpty(reply))
@@ -255,13 +258,14 @@ public class Worker : BackgroundService
                         Guid.NewGuid().ToString("N")
                     );
                     await convService.ProcessMessageAsync(brokerMsg, ct);
-                    _logger.LogInformation("[LOUD] AI reply sent: {Reply}", reply);
+                    if (debug) _logger.LogInformation("[LOUD] AI reply sent: {Reply}", reply);
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[LOUD] Error in PerformAsyncAnalysisAndReply for {ConvId}", conversationId);
+            if (_configuration["LOG_DEBUG"]?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false) 
+                _logger.LogError(ex, "[LOUD] Error in PerformAsyncAnalysisAndReply for {ConvId}", conversationId);
         }
     }
 

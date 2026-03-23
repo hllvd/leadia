@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Application.Interfaces;
 using Application.DTOs;
 using Domain.Entities;
@@ -20,8 +21,10 @@ public record ProcessResult(
 public class ConversationStateService(
     IConversationStateRepository repository,
     IRealStateRepository realStateRepository,
-    IPersistenceEventPublisher persistencePublisher)
+    IPersistenceEventPublisher persistencePublisher,
+    Microsoft.Extensions.Configuration.IConfiguration config)
 {
+    private readonly bool _debug = config["LOG_DEBUG"]?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false;
     /// <summary>
     /// Processes a normalized inbound message:
     ///   1. Load or initialise ConversationState
@@ -146,24 +149,31 @@ public class ConversationStateService(
             }
         }
 
-        Console.WriteLine($"[DEBUG] LLM identified {factUpdates.Count} facts.");
-        foreach (var f in factUpdates)
+        if (_debug)
         {
-            Console.WriteLine($"[DEBUG] Fact: {f.Name} = {f.Value} (Conf: {f.Confidence})");
+            Console.WriteLine($"[DEBUG] LLM identified {factUpdates.Count} facts.");
+            foreach (var f in factUpdates)
+            {
+                Console.WriteLine($"[DEBUG] Fact: {f.Name} = {f.Value} (Conf: {f.Confidence})");
+            }
         }
 
         var filtered = factUpdates.Where(f => f.Confidence >= 0.5).ToList();
-        Console.WriteLine($"[DEBUG] {filtered.Count} facts passed confidence threshold (0.5).");
+        
+        if (_debug) Console.WriteLine($"[DEBUG] {filtered.Count} facts passed confidence threshold (0.5).");
 
         var existing = await repository.GetFactsAsync(conversationId, ct);
         var merged   = FactMerger.Merge(existing, filtered, conversationId);
         
-        Console.WriteLine($"[DEBUG] Merged result: {merged.Count} facts total.");
-        Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Merged {merged.Count} facts. Saving to DB...");
+        if (_debug)
+        {
+            Console.WriteLine($"[DEBUG] Merged result: {merged.Count} facts total.");
+            Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Merged {merged.Count} facts. Saving to DB...");
+        }
         await repository.UpsertFactsAsync(conversationId, merged, ct);
 
         // ── 2. Publish persistence events (Queues) ───────────────────────────
-        Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Publishing to NATS persistence...");
+        if (_debug) Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Publishing to NATS persistence...");
         await persistencePublisher.PublishSummaryAsync(conversationId, llmResponse.Summary, state.LastMessageHash, ct);
         await persistencePublisher.PublishFactsAsync(conversationId, merged, ct);
 
@@ -180,7 +190,7 @@ public class ConversationStateService(
                 Timestamp = eventTimestamp
             }).ToList();
 
-            Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Processing {convEvents.Count} events for {conversationId}");
+            if (_debug) Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Processing {convEvents.Count} events for {conversationId}");
             await repository.UpsertEventsAsync(conversationId, convEvents, ct);
             
             foreach (var @event in convEvents)
@@ -189,7 +199,7 @@ public class ConversationStateService(
             }
         }
 
-        Console.WriteLine($"[LOUD] ApplyLlmResultAsync: COMPLETED for {conversationId}");
+        if (_debug) Console.WriteLine($"[LOUD] ApplyLlmResultAsync: COMPLETED for {conversationId}");
     }
 
     /// <summary>Returns current facts for a conversation.</summary>
@@ -225,7 +235,7 @@ public class ConversationStateService(
         var facts = await repository.GetFactsAsync(conversationId, ct);
         var llmContext = LlmContextBuilder.Build(state.RollingSummary, facts, buffer, string.Empty);
         
-        Console.WriteLine($"[LOUD] TriggerAnalysisAsync: Built context ({llmContext.Length} chars) for {conversationId}");
+        if (_debug) Console.WriteLine($"[LOUD] TriggerAnalysisAsync: Built context ({llmContext.Length} chars) for {conversationId}");
 
         // Clear buffer
         state.BufferJson = "[]";

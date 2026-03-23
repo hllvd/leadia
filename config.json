@@ -1,4 +1,5 @@
 {
+  "LOG_DEBUG": false,
   "App": {
     "Name": "ContaZap",
     "Version": "1.0.0",

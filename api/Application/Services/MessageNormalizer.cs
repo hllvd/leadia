@@ -61,6 +61,16 @@ public static partial class MessageNormalizer
         return Convert.ToHexStringLower(bytes);
     }
 
+    /// <summary>
+    /// Generates the deterministic S3 filename for a conversation part.
+    /// Pattern: {conversationId}-part-{part}.json
+    /// </summary>
+    public static string GetS3FileName(string conversationId, int part)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
+        return $"{conversationId.Trim()}-part-{part}.json";
+    }
+
     [GeneratedRegex(@" {2,}")]
     private static partial Regex CollapseSpacesRegex();
 

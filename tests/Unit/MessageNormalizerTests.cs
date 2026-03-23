@@ -110,4 +110,25 @@ public class MessageNormalizerTests
         var h2 = MessageNormalizer.ComputeHash("ts2", "b", "c", "msg");
         Assert.NotEqual(h1, h2);
     }
+
+    // ── GetS3FileName ────────────────────────────────────────────────────────
+    
+    [Theory]
+    [InlineData("123-456", 1, "123-456-part-1.json")]
+    [InlineData("abc-def", 10, "abc-def-part-10.json")]
+    [InlineData("  trim-me  ", 5, "trim-me-part-5.json")]
+    public void GetS3FileName_ReturnsCorrectPattern(string convId, int part, string expected)
+    {
+        Assert.Equal(expected, MessageNormalizer.GetS3FileName(convId, part));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void GetS3FileName_Throws_OnNullOrWhitespace(string convId)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            MessageNormalizer.GetS3FileName(convId!, 1));
+    }
 }

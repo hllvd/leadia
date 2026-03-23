@@ -13,9 +13,7 @@ using NATS.Client.Core;
 var builder = Host.CreateApplicationBuilder(args);
 
 // ── Configuration ──────────────────────────────────────────────────────────
-builder.Configuration.AddJsonFile("config.json", optional: false, reloadOnChange: true);
-builder.Configuration.AddJsonFile("config.local.json", optional: true, reloadOnChange: true);
-builder.Configuration.AddEnvironmentVariables();
+Infrastructure.Configuration.ConfigLoader.Apply(builder.Configuration);
 var config = builder.Configuration;
 
 // ── Shared Infrastructure ───────────────────────────────────────────────────
@@ -65,5 +63,8 @@ builder.Services.AddHttpClient<ILlmService, LlmService>();
 builder.Services.AddHostedService<Worker>();
 
 using IHost host = builder.Build();
-Console.WriteLine("[DEBUG] MessageWorker Program is running...");
+if (config["LOG_DEBUG"]?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false)
+{
+    Console.WriteLine("[DEBUG] MessageWorker Program is running...");
+}
 host.Run();

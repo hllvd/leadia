@@ -74,7 +74,10 @@ public class LlmService : ILlmService
             var message = choice.GetProperty("message");
             var content = message.GetProperty("content").GetString();
             
-            Console.WriteLine($"[DEBUG] LLM Raw Response: {content}");
+            if (_config["LOG_DEBUG"]?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false)
+            {
+                Console.WriteLine($"[DEBUG] LLM Raw Response: {content}");
+            }
 
             if (string.IsNullOrEmpty(content)) return null;
 
