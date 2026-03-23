@@ -117,7 +117,7 @@ function ChatWindow({ title, color, messages, input, setInput, onSend, loading, 
 function CollapsibleSection({ title, count, color, defaultOpen = true, children }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+    <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '45vh' }}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
         style={{ 
@@ -138,7 +138,7 @@ function CollapsibleSection({ title, count, color, defaultOpen = true, children 
         </div>
       </div>
       {isOpen && (
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 16, overflowY: 'auto' }}>
           {children}
         </div>
       )}
@@ -159,7 +159,7 @@ function FactsPanel({ facts, summary, allFacts, factLabels, events }) {
       gap: 12,
       overflowY: 'auto',
     }}>
-      <div className="card" style={{ padding: 16 }}>
+      <div className="card" style={{ padding: 16, overflowY: 'auto', maxHeight: '25vh' }}>
         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
           📝 Resumo
         </div>
