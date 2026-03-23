@@ -1,6 +1,7 @@
 using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Data;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories;
@@ -67,41 +68,45 @@ public class ConversationStateRepository(AppDbContext db) : IConversationStateRe
     }
 
     public async Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default)
-        => []; // Existing (not yet implemented for SQLite)
+        => await Task.FromResult(new List<NormalizedMessage>());
 
-    public async Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(string conversationId, CancellationToken ct = default)
-        => await db.ConversationEvents
-                   .Where(e => e.ConversationId == conversationId)
-                   .OrderBy(e => e.Timestamp)
+    public async Task<IReadOnlyList<ConversationTask>> GetTasksAsync(string conversationId, CancellationToken ct = default)
+        => await db.ConversationTasks
+                   .Where(t => t.ConversationId == conversationId)
                    .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<ConversationEvent>> GetLatestEventsAsync(string conversationId, int limit, CancellationToken ct = default)
-        => await db.ConversationEvents
-                   .Where(e => e.ConversationId == conversationId)
-                   .OrderByDescending(e => e.Timestamp)
-                   .Take(limit)
-                   .ToListAsync(ct);
-
-    public async Task<PagedTimelineResult> GetTimelineAsync(string conversationId, int limit = 50, string? exclusiveStartKey = null, bool forward = true, CancellationToken ct = default)
+    public async Task UpsertTaskAsync(ConversationTask task, CancellationToken ct = default)
     {
-        // Simple implementation for SQLite (events only for now)
-        var evts = await db.ConversationEvents
-                   .Where(e => e.ConversationId == conversationId)
-                   .OrderBy(e => e.Timestamp)
-                   .Take(limit)
-                   .ToListAsync(ct);
-        
-        var items = evts.Select(e => new TimelineItem(e.Type, e, DateTimeOffset.Parse(e.Timestamp))).ToList();
-        return new PagedTimelineResult(items, null);
-    }
-
-    public async Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default)
-    {
-        // Simple append-only for events in SQLite as well
-        foreach (var @event in events)
+        var existing = await db.ConversationTasks
+                               .FirstOrDefaultAsync(t => t.ConversationId == task.ConversationId && t.Type == task.Type, ct);
+        if (existing is null)
+            db.ConversationTasks.Add(task);
+        else
         {
-            db.ConversationEvents.Add(@event);
+            existing.Status       = task.Status;
+            existing.Owner        = task.Owner;
+            existing.Description  = task.Description;
+            existing.MetadataJson = task.MetadataJson;
+            existing.UpdatedAt    = task.UpdatedAt;
         }
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task UpsertSignalsAsync(string conversationId, Application.DTOs.LlmSignals signals, CancellationToken ct = default)
+    {
+        var state = await db.ConversationStates.FindAsync([conversationId], ct);
+        if (state != null)
+        {
+            state.SignalsJson = JsonSerializer.Serialize(signals);
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    public async Task<Application.DTOs.LlmSignals?> GetSignalsAsync(string conversationId, CancellationToken ct = default)
+    {
+        var state = await db.ConversationStates.FindAsync([conversationId], ct);
+        if (state == null || string.IsNullOrEmpty(state.SignalsJson)) return null;
+        return JsonSerializer.Deserialize<Application.DTOs.LlmSignals>(state.SignalsJson);
+    }
 }
+

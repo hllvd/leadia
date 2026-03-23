@@ -259,7 +259,9 @@ public class Worker : BackgroundService
         var buffResponse = await _db.UpdateItemAsync(buffRequest, ct);
 
         // If this was the first message in the buffer (is_buffering was not true before)
-        bool wasBuffering = buffResponse.Attributes.TryGetValue("is_buffering", out var isBufferingAttr) && isBufferingAttr.BOOL;
+        bool wasBuffering = buffResponse?.Attributes != null && 
+                           buffResponse.Attributes.TryGetValue("is_buffering", out var isBufferingAttr) && 
+                           isBufferingAttr.BOOL;
         if (!wasBuffering)
         {
             // Publish KV event to start the TTL timer

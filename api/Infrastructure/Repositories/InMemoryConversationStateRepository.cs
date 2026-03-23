@@ -36,40 +36,33 @@ public class InMemoryConversationStateRepository : IConversationStateRepository
 
     public Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<NormalizedMessage>>([]);
-
-    public Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(string conversationId, CancellationToken ct = default)
+        
+    public Task<IReadOnlyList<ConversationTask>> GetTasksAsync(string conversationId, CancellationToken ct = default)
     {
-        var evts = _events.GetValueOrDefault(conversationId) ?? [];
-        return Task.FromResult<IReadOnlyList<ConversationEvent>>(evts.OrderBy(e => e.Timestamp).ToList());
+        var tasks = _tasks.GetValueOrDefault(conversationId) ?? [];
+        return Task.FromResult<IReadOnlyList<ConversationTask>>(tasks.Values.ToList());
     }
 
-    public Task<IReadOnlyList<ConversationEvent>> GetLatestEventsAsync(string conversationId, int limit, CancellationToken ct = default)
+    public Task UpsertTaskAsync(ConversationTask task, CancellationToken ct = default)
     {
-        var evts = _events.GetValueOrDefault(conversationId) ?? [];
-        return Task.FromResult<IReadOnlyList<ConversationEvent>>(evts.OrderByDescending(e => e.Timestamp).Take(limit).ToList());
-    }
-
-    public Task<PagedTimelineResult> GetTimelineAsync(string conversationId, int limit = 50, string? exclusiveStartKey = null, bool forward = true, CancellationToken ct = default)
-    {
-        // Simple in-memory mock timeline (only events for now)
-        var evts = _events.GetValueOrDefault(conversationId) ?? [];
-        var items = evts.Select(e => new TimelineItem(e.Type, e, DateTimeOffset.Parse(e.Timestamp)))
-                        .OrderBy(x => x.Timestamp)
-                        .Take(limit)
-                        .ToList();
-        return Task.FromResult(new PagedTimelineResult(items, null));
-    }
-
-    public Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default)
-    {
-        if (!_events.TryGetValue(conversationId, out var existing))
+        if (!_tasks.TryGetValue(task.ConversationId, out var dict))
         {
-            existing = new List<ConversationEvent>();
-            _events[conversationId] = existing;
+            dict = new Dictionary<string, ConversationTask>();
+            _tasks[task.ConversationId] = dict;
         }
-        ((List<ConversationEvent>)existing).AddRange(events);
+        dict[task.Type] = task;
         return Task.CompletedTask;
     }
 
-    private readonly Dictionary<string, List<ConversationEvent>> _events = [];
+    public Task<Application.DTOs.LlmSignals?> GetSignalsAsync(string conversationId, CancellationToken ct = default)
+        => Task.FromResult(_signals.GetValueOrDefault(conversationId));
+
+    public Task UpsertSignalsAsync(string conversationId, Application.DTOs.LlmSignals signals, CancellationToken ct = default)
+    {
+        _signals[conversationId] = signals;
+        return Task.CompletedTask;
+    }
+
+    private readonly Dictionary<string, Dictionary<string, ConversationTask>> _tasks = [];
+    private readonly Dictionary<string, Application.DTOs.LlmSignals> _signals = [];
 }

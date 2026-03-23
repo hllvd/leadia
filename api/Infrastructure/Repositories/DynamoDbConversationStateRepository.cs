@@ -52,7 +52,7 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             RollingSummary = item.GetValueOrDefault("rolling_summary")?.S ?? "",
             LastMessageHash = item.GetValueOrDefault("last_hash")?.S ?? "",
             LastMessageTimestamp = item.ContainsKey("last_ts") ? DateTimeOffset.Parse(item["last_ts"].S) : DateTimeOffset.MinValue,
-            LastActivityTimestamp = item.ContainsKey("last_activity") ? DateTimeOffset.Parse(item["last_activity"].S) : DateTimeOffset.MinValue,
+            LastActivityTimestamp = item.GetValueOrDefault("last_activity")?.S ?? string.Empty,
             BufferJson = item.GetValueOrDefault("buffer_json")?.S ?? "[]",
             BufferChars = item.ContainsKey("buffer_chars") ? int.Parse(item["buffer_chars"].N) : 0,
             BrokerId = item.GetValueOrDefault("broker_id")?.S ?? "",
@@ -73,7 +73,7 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
                 { "rolling_summary", new AttributeValue { S = state.RollingSummary } },
                 { "last_hash", new AttributeValue { S = state.LastMessageHash } },
                 { "last_ts", new AttributeValue { S = state.LastMessageTimestamp.ToString("O") } },
-                { "last_activity", new AttributeValue { S = state.LastActivityTimestamp.ToString("O") } },
+                { "last_activity", new AttributeValue { S = state.LastActivityTimestamp } },
                 { "buffer_json", new AttributeValue { S = state.BufferJson } },
                 { "buffer_chars", new AttributeValue { N = state.BufferChars.ToString() } },
                 { "broker_id", new AttributeValue { S = state.BrokerId } },
@@ -137,7 +137,9 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
         return await Task.FromResult(new List<NormalizedMessage>());
     }
 
-    public async Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(string conversationId, CancellationToken ct = default)
+    // Events methods removed during Signals+Tasks migration.
+
+    public async Task<IReadOnlyList<ConversationTask>> GetTasksAsync(string conversationId, CancellationToken ct = default)
     {
         var request = new QueryRequest
         {
@@ -146,102 +148,82 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
                 { ":pk", new AttributeValue { S = $"CONV#{conversationId}" } },
-                { ":sk_prefix", new AttributeValue { S = "EVT#" } }
-            },
-            ScanIndexForward = true
+                { ":sk_prefix", new AttributeValue { S = "TASK#" } }
+            }
         };
 
         var response = await _db.QueryAsync(request, ct);
-        return response.Items.Select(TranslateEvent).ToList();
-    }
-
-    public async Task<IReadOnlyList<ConversationEvent>> GetLatestEventsAsync(string conversationId, int limit, CancellationToken ct = default)
-    {
-        var request = new QueryRequest
+        return response.Items.Select(item => new ConversationTask
         {
-            TableName = _tableName,
-            KeyConditionExpression = $"{_primaryKey} = :pk AND begins_with({_sortKey}, :sk_prefix)",
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-            {
-                { ":pk", new AttributeValue { S = $"CONV#{conversationId}" } },
-                { ":sk_prefix", new AttributeValue { S = "EVT#" } }
-            },
-            ScanIndexForward = false,
-            Limit = limit
-        };
-
-        var response = await _db.QueryAsync(request, ct);
-        return response.Items.Select(TranslateEvent).ToList();
-    }
-
-    public async Task<PagedTimelineResult> GetTimelineAsync(string conversationId, int limit = 50, string? exclusiveStartKey = null, bool forward = true, CancellationToken ct = default)
-    {
-        var request = new QueryRequest
-        {
-            TableName = _tableName,
-            KeyConditionExpression = $"{_primaryKey} = :pk",
-            FilterExpression = $"begins_with({_sortKey}, :evt_pfx)",
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-            {
-                { ":pk", new AttributeValue { S = $"CONV#{conversationId}" } },
-                { ":evt_pfx", new AttributeValue { S = "EVT#" } }
-            },
-            ScanIndexForward = forward,
-            Limit = limit
-        };
-
-        if (!string.IsNullOrEmpty(exclusiveStartKey))
-        {
-            request.ExclusiveStartKey = JsonSerializer.Deserialize<Dictionary<string, AttributeValue>>(exclusiveStartKey);
-        }
-
-        var response = await _db.QueryAsync(request, ct);
-        var items = response.Items.Select(TranslateTimelineElement).ToList();
-
-        var lastKeyJson = response.LastEvaluatedKey.Count > 0 
-            ? JsonSerializer.Serialize(response.LastEvaluatedKey) 
-            : null;
-
-        return new PagedTimelineResult(items, lastKeyJson);
-    }
-
-    private ConversationEvent TranslateEvent(Dictionary<string, AttributeValue> item)
-    {
-        return new ConversationEvent
-        {
+            Id = item.GetValueOrDefault("id")?.S ?? string.Empty,
+            ConversationId = item["conversation_id"].S,
             Type = item["type"].S,
-            Actor = item["actor"].S,
+            Status = item["status"].S,
+            Owner = item["owner"].S,
             Description = item["description"].S,
-            Timestamp = item["timestamp"].S,
-            ConversationId = item["conversation_id"].S
-        };
+            MetadataJson = item.GetValueOrDefault("metadata_json")?.S ?? "{}",
+            CreatedAt = item.ContainsKey("created_at") ? DateTimeOffset.Parse(item["created_at"].S) : DateTimeOffset.MinValue,
+            UpdatedAt = item.ContainsKey("updated_at") ? DateTimeOffset.Parse(item["updated_at"].S) : DateTimeOffset.MinValue
+        }).ToList();
     }
 
-    private TimelineItem TranslateTimelineElement(Dictionary<string, AttributeValue> item)
+    public async Task UpsertTaskAsync(ConversationTask task, CancellationToken ct = default)
     {
-        var e = TranslateEvent(item);
-        return new TimelineItem(e.Type, e, DateTimeOffset.Parse(e.Timestamp));
-    }
-
-    public async Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default)
-    {
-        foreach (var @event in events)
+        var request = new PutItemRequest
         {
-            var request = new PutItemRequest
+            TableName = _tableName,
+            Item = new Dictionary<string, AttributeValue>
             {
-                TableName = _tableName,
-                Item = new Dictionary<string, AttributeValue>
-                {
+                { _primaryKey, new AttributeValue { S = $"CONV#{task.ConversationId}" } },
+                { _sortKey, new AttributeValue { S = $"TASK#{task.Type}" } },
+                { "id", new AttributeValue { S = task.Id } },
+                { "conversation_id", new AttributeValue { S = task.ConversationId } },
+                { "type", new AttributeValue { S = task.Type } },
+                { "status", new AttributeValue { S = task.Status } },
+                { "owner", new AttributeValue { S = task.Owner } },
+                { "description", new AttributeValue { S = task.Description } },
+                { "metadata_json", new AttributeValue { S = task.MetadataJson } },
+                { "created_at", new AttributeValue { S = task.CreatedAt.ToString("O") } },
+                { "updated_at", new AttributeValue { S = task.UpdatedAt.ToString("O") } }
+            }
+        };
+        await _db.PutItemAsync(request, ct);
+    }
+
+    public async Task<Application.DTOs.LlmSignals?> GetSignalsAsync(string conversationId, CancellationToken ct = default)
+    {
+        var request = new GetItemRequest
+        {
+            TableName = _tableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
                 { _primaryKey, new AttributeValue { S = $"CONV#{conversationId}" } },
-                { _sortKey, new AttributeValue { S = $"EVT#{@event.Timestamp}#{@event.Type}" } },
-                { "type", new AttributeValue { S = @event.Type } },
-                { "actor", new AttributeValue { S = @event.Actor } },
-                { "description", new AttributeValue { S = @event.Description } },
-                { "timestamp", new AttributeValue { S = @event.Timestamp } },
-                { "conversation_id", new AttributeValue { S = conversationId } }
-                }
-            };
-            await _db.PutItemAsync(request, ct);
-        }
+                { _sortKey, new AttributeValue { S = "SIGNALS" } }
+            }
+        };
+
+        var response = await _db.GetItemAsync(request, ct);
+        if (!response.IsItemSet) return null;
+
+        var json = response.Item.GetValueOrDefault("payload_json")?.S;
+        if (string.IsNullOrEmpty(json)) return null;
+
+        return JsonSerializer.Deserialize<Application.DTOs.LlmSignals>(json);
+    }
+
+    public async Task UpsertSignalsAsync(string conversationId, Application.DTOs.LlmSignals signals, CancellationToken ct = default)
+    {
+        var request = new PutItemRequest
+        {
+            TableName = _tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                { _primaryKey, new AttributeValue { S = $"CONV#{conversationId}" } },
+                { _sortKey, new AttributeValue { S = "SIGNALS" } },
+                { "payload_json", new AttributeValue { S = JsonSerializer.Serialize(signals) } },
+                { "updated_at", new AttributeValue { S = DateTimeOffset.UtcNow.ToString("O") } }
+            }
+        };
+        await _db.PutItemAsync(request, ct);
     }
 }

@@ -30,10 +30,11 @@ public class MessageWorkerTests
         // We need a real-ish or mocked ConversationStateService
         // Since it's a class, we mock the Repo and Publisher dependencies of it
         var repoMock = new Mock<IConversationStateRepository>();
+        var realMock = new Mock<IRealStateRepository>();
         var pubMock = new Mock<IPersistenceEventPublisher>();
+        var configMock = new Mock<Microsoft.Extensions.Configuration.IConfiguration>();
         
-        var realConvService = new ConversationStateService(repoMock.Object, pubMock.Object);
-        _serviceProviderMock.Setup(x => x.GetService(typeof(ConversationStateService))).Returns(realConvService);
+        var realConvService = new ConversationStateService(repoMock.Object, realMock.Object, pubMock.Object, configMock.Object);
         _serviceProviderMock.Setup(x => x.GetService(typeof(ILlmService))).Returns(_llmServiceMock.Object);
     }
 

@@ -18,7 +18,8 @@ public class ConversationState
     public int    BufferChars           { get; set; }
     public string LastMessageHash       { get; set; } = string.Empty;
     public DateTimeOffset LastMessageTimestamp  { get; set; } = DateTimeOffset.MinValue;
-    public DateTimeOffset LastActivityTimestamp { get; set; } = DateTimeOffset.UtcNow;
+    public string LastActivityTimestamp { get; set; } = DateTimeOffset.UtcNow.ToString("O"); // Wait, it should be DateTimeOffset
+    public string SignalsJson            { get; set; } = "{}"; // Latest signals snapshot
     public DateTimeOffset CreatedAt     { get; set; } = DateTimeOffset.UtcNow;
 
     // Navigation

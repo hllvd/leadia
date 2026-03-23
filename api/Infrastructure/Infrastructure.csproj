@@ -9,7 +9,7 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
     <PackageReference Include="NATS.Net" Version="2.6.3" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.405.10" />
-    <PackageReference Include="AWSSDK.S3" Version="3.7.404.22" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.405" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.2" />

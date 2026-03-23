@@ -32,6 +32,9 @@ public class PersistenceWorkerTests
         var payloadJson = "{\"conversation_id\":\"c1\", \"timestamp\":\"2024-03-11T12:00:00Z\", \"sender_type\":\"customer\", \"text\":\"hello\", \"hash\":\"h1\"}";
         var payload = JsonDocument.Parse(payloadJson).RootElement;
 
+        _dbMock.Setup(x => x.UpdateItemAsync(It.IsAny<UpdateItemRequest>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(new UpdateItemResponse { Attributes = new Dictionary<string, AttributeValue>() });
+
         await worker.ExposeHandlePersistMessageAsync(payload, default);
 
         _dbMock.Verify(x => x.UpdateItemAsync(It.Is<UpdateItemRequest>(r => 

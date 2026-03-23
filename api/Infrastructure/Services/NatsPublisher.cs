@@ -88,23 +88,15 @@ public class NatsPublisher : IMessagePublisher, IPersistenceEventPublisher, IAsy
         var json = JsonSerializer.Serialize(payload);
         await _js.PublishAsync($"persist.facts.{conversationId}", json, cancellationToken: ct);
     }
-
-    public async Task PublishEventAsync(ConversationEvent @event, CancellationToken ct = default)
+    public async Task PublishNotificationAsync(string conversationId, string type, object payload, CancellationToken ct = default)
     {
-        var payload = new
+        var msg = new
         {
-            type = "persist.event",
-            payload = new
-            {
-                conversation_id = @event.ConversationId,
-                type = @event.Type,
-                actor = @event.Actor,
-                description = @event.Description,
-                timestamp = @event.Timestamp
-            }
+            type = $"persist.notification.{type}",
+            payload = payload
         };
-        var json = JsonSerializer.Serialize(payload);
-        await _js.PublishAsync($"persist.event.{@event.ConversationId}", json, cancellationToken: ct);
+        var json = JsonSerializer.Serialize(msg);
+        await _js.PublishAsync($"persist.notification.{conversationId}", json, cancellationToken: ct);
     }
 
     public async ValueTask DisposeAsync()

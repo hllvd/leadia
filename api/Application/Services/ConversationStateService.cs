@@ -76,9 +76,9 @@ public class ConversationStateService(
                                 ? 0 
                                 : (msg.Timestamp - state.LastMessageTimestamp).TotalSeconds;
 
-        var isExpired         = state.LastActivityTimestamp == DateTimeOffset.MinValue
+        var isExpired         = string.IsNullOrEmpty(state.LastActivityTimestamp)
                                 ? false
-                                : BufferPolicy.IsBufferExpired(state.LastActivityTimestamp);
+                                : BufferPolicy.IsBufferExpired(DateTimeOffset.Parse(state.LastActivityTimestamp));
 
         var shouldTrigger     = BufferPolicy.ShouldTriggerSummary(buffer.Count, bufferChars, secondsSinceLast)
                              || (isExpired && buffer.Count > 0);
@@ -86,7 +86,7 @@ public class ConversationStateService(
         // ── 4. Update state fields ────────────────────────────────────────────
         state.LastMessageHash       = msg.MessageHash;
         state.LastMessageTimestamp  = msg.Timestamp;
-        state.LastActivityTimestamp = DateTimeOffset.UtcNow;
+        state.LastActivityTimestamp = DateTimeOffset.UtcNow.ToString("O");
 
         state.BufferJson  = JsonSerializer.Serialize(buffer);
         state.BufferChars = bufferChars;
@@ -113,9 +113,9 @@ public class ConversationStateService(
         var state = await repository.GetByIdAsync(conversationId, ct);
         if (state is null) return;
 
-        // Overwrite rolling summary
+        // Overwrite rolling summary in memory (for subsequent logic)
         state.RollingSummary = llmResponse.Summary;
-        await repository.UpsertAsync(state, ct);
+        // Direct DB update removed - handled via NATS persistence.
 
         // Convert LlmResponse.Facts to FactUpdates + Filter by confidence >= 0.5
         // Map LLM keys to canonical FactKeys (case-insensitive)
@@ -164,42 +164,152 @@ public class ConversationStateService(
 
         var existing = await repository.GetFactsAsync(conversationId, ct);
         var merged   = FactMerger.Merge(existing, filtered, conversationId);
-        
+
         if (_debug)
         {
             Console.WriteLine($"[DEBUG] Merged result: {merged.Count} facts total.");
-            Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Merged {merged.Count} facts. Saving to DB...");
+            Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Merged {merged.Count} facts. Publishing to NATS...");
         }
-        await repository.UpsertFactsAsync(conversationId, merged, ct);
 
         // ── 2. Publish persistence events (Queues) ───────────────────────────
         if (_debug) Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Publishing to NATS persistence...");
         await persistencePublisher.PublishSummaryAsync(conversationId, llmResponse.Summary, state.LastMessageHash, ct);
         await persistencePublisher.PublishFactsAsync(conversationId, merged, ct);
 
-        // ── 3. Handle Events ────────────────────────────────────────────────
-        if (llmResponse.Events != null && llmResponse.Events.Count > 0)
+        // ── 3. Handle Tasks & Signals ───────────────────────────────────────────────
+        if (llmResponse.Signals != null)
         {
-            var eventTimestamp = DateTimeOffset.UtcNow.ToString("O");
-            var convEvents = llmResponse.Events.Select(e => new ConversationEvent
-            {
-                ConversationId = conversationId,
-                Type = e.Type,
-                Actor = e.Actor,
-                Description = e.Description,
-                Timestamp = eventTimestamp
-            }).ToList();
-
-            if (_debug) Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Processing {convEvents.Count} events for {conversationId}");
-            await repository.UpsertEventsAsync(conversationId, convEvents, ct);
-            
-            foreach (var @event in convEvents)
-            {
-                await persistencePublisher.PublishEventAsync(@event, ct);
-            }
+            if (_debug) Console.WriteLine($"[LOUD] ApplyLlmResultAsync: Processing Tasks/Signals for {conversationId}");
+            await repository.UpsertSignalsAsync(conversationId, llmResponse.Signals, ct);
+            await SyncTasksAsync(conversationId, llmResponse.Signals, llmResponse.Context, ct);
         }
 
         if (_debug) Console.WriteLine($"[LOUD] ApplyLlmResultAsync: COMPLETED for {conversationId}");
+    }
+
+    private async Task SyncTasksAsync(string conversationId, LlmSignals signals, LlmContext? context, CancellationToken ct)
+    {
+        var existingTasks = await repository.GetTasksAsync(conversationId, ct);
+        var tasksDict = existingTasks.ToDictionary(t => t.Type, t => t);
+
+        var now = DateTimeOffset.UtcNow;
+        var defaultOwner = context?.LastAction?.Actor?.ToLowerInvariant() == "broker" ? "customer" : "broker";
+
+        ConversationTask GetOrCreateTask(string type)
+        {
+            if (!tasksDict.TryGetValue(type, out var t))
+            {
+                t = new ConversationTask
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    ConversationId = conversationId,
+                    Type = type,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+            }
+            return t;
+        }
+
+        bool UpsertIfNeeded(ConversationTask task, string newStatus, string? newOwner, string? desc, Dictionary<string, string>? metadata)
+        {
+            newOwner ??= defaultOwner;
+            bool changed = task.Status != newStatus || task.Owner != newOwner || task.Description != desc;
+            
+            if (metadata != null)
+            {
+                var newMetaJson = JsonSerializer.Serialize(metadata);
+                if (task.MetadataJson != newMetaJson)
+                {
+                    task.MetadataJson = newMetaJson;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                task.Status = newStatus;
+                task.Owner = newOwner;
+                if (desc != null) task.Description = desc;
+                task.UpdatedAt = now;
+                return true;
+            }
+            return false;
+        }
+
+        var toUpsert = new List<ConversationTask>();
+
+        // 1. Question Task
+        var qTask = GetOrCreateTask("question");
+        string qStatus = qTask.Status;
+        if (signals.HasNewQuestion) qStatus = "open";
+        else if (!signals.HasUnansweredQuestion) qStatus = "completed";
+        // If it was open and has_unanswered_question is true, it stays open.
+        
+        if (UpsertIfNeeded(qTask, qStatus, defaultOwner, "Answer customer's questions", null))
+            toUpsert.Add(qTask);
+
+        // 2. Visit Task
+        var vTask = GetOrCreateTask("visit");
+        string vStatus = vTask.Status;
+        if (signals.VisitSuggested || signals.HasPendingVisit) vStatus = "open";
+        if (signals.VisitConfirmed) vStatus = "completed";
+
+        var vMeta = context?.Visit != null ? new Dictionary<string, string>
+        {
+            { "proposed_date", context.Visit.ProposedDate ?? "" },
+            { "proposed_time", context.Visit.ProposedTime ?? "" }
+        } : null;
+
+        if (UpsertIfNeeded(vTask, vStatus, defaultOwner, "Process property visit request", vMeta))
+            toUpsert.Add(vTask);
+
+        // 3. Documents Task
+        var dTask = GetOrCreateTask("documents");
+        string dStatus = dTask.Status;
+        var docRequested = context?.Documents?.Requested == true;
+        if (signals.HasPendingDocuments || docRequested) dStatus = "open";
+        else if (!signals.HasPendingDocuments) dStatus = "completed";
+
+        var dMeta = context?.Documents != null ? new Dictionary<string, string>
+        {
+            { "description", context.Documents.Description ?? "" }
+        } : null;
+
+        if (UpsertIfNeeded(dTask, dStatus, defaultOwner, "Handle pending documents", dMeta))
+            toUpsert.Add(dTask);
+
+        // 4. Follow-up Task
+        var fTask = GetOrCreateTask("followup");
+        string fStatus = fTask.Status;
+        if (signals.NeedsFollowup) fStatus = "pending";
+        else if (!signals.NeedsFollowup) fStatus = "completed";
+
+        if (UpsertIfNeeded(fTask, fStatus, "broker", "Follow up with customer", null))
+            toUpsert.Add(fTask);
+
+        foreach (var task in toUpsert)
+        {
+            if (_debug) Console.WriteLine($"[DEBUG] Upserting Task: {task.Type} | Status: {task.Status} | Owner: {task.Owner}");
+            await repository.UpsertTaskAsync(task, ct);
+
+            if (task.Status == "open" || task.Status == "pending")
+            {
+                await persistencePublisher.PublishNotificationAsync(conversationId, "task_state", new 
+                {
+                    task_id = task.Id,
+                    task_type = task.Type,
+                    status = task.Status,
+                    owner = task.Owner,
+                    description = task.Description
+                }, ct);
+            }
+        }
+
+        if (signals.CustomerUnresponsive)
+        {
+            await persistencePublisher.PublishNotificationAsync(conversationId, "unresponsive", new { }, ct);
+        }
     }
 
     /// <summary>Returns current facts for a conversation.</summary>
@@ -250,8 +360,4 @@ public class ConversationStateService(
         string conversationId, CancellationToken ct = default)
         => await repository.GetMessagesAsync(conversationId, ct);
 
-    /// <summary>Returns all events for a conversation.</summary>
-    public async Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(
-        string conversationId, CancellationToken ct = default)
-        => await repository.GetEventsAsync(conversationId, ct);
 }

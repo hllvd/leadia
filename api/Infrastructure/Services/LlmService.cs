@@ -89,10 +89,22 @@ public class LlmService : ILlmService
                 content = cleaned.Trim();
             }
 
-            return JsonSerializer.Deserialize<LlmResponse>(content, new JsonSerializerOptions
+            var parsed = JsonSerializer.Deserialize<LlmResponse>(content, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
+
+            if (parsed != null)
+            {
+                parsed = parsed with
+                {
+                    Signals = parsed.Signals ?? new LlmSignals(),
+                    Context = parsed.Context ?? new LlmContext(null, null, null)
+                };
+            }
+
+            return parsed;
+
         }
         catch (Exception ex)
         {

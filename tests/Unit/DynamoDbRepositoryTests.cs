@@ -57,22 +57,4 @@ public class DynamoDbRepositoryTests
             r.ExpressionAttributeValues[":sk_prefix"].S == "FACT#"), default), Times.Once);
     }
 
-    [Fact]
-    public async Task GetTimelineAsync_UsesFilterExpressionForEvents()
-    {
-        // Arrange
-        var convId = "123-456";
-        _dbMock.Setup(x => x.QueryAsync(It.IsAny<QueryRequest>(), default))
-               .ReturnsAsync(new QueryResponse { Items = [], LastEvaluatedKey = [] });
-
-        // Act
-        await _repository.GetTimelineAsync(convId, limit: 10);
-
-        // Assert
-        _dbMock.Verify(x => x.QueryAsync(It.Is<QueryRequest>(r => 
-            r.KeyConditionExpression == "PK = :pk" && 
-            r.FilterExpression.Contains("EVT#") && 
-            !r.FilterExpression.Contains("MSG#") && 
-            r.Limit == 10), default), Times.Once);
-    }
 }

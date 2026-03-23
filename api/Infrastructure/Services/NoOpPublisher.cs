@@ -22,6 +22,6 @@ public class NoOpPublisher : IMessagePublisher, IPersistenceEventPublisher
     public Task PublishFactsAsync(string conversationId, IEnumerable<ConversationFact> facts, CancellationToken ct = default)
         => Task.CompletedTask;
 
-    public Task PublishEventAsync(ConversationEvent @event, CancellationToken ct = default)
+    public Task PublishNotificationAsync(string conversationId, string type, object payload, CancellationToken ct = default)
         => Task.CompletedTask;
 }

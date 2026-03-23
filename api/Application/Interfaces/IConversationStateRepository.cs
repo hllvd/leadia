@@ -22,24 +22,15 @@ public interface IConversationStateRepository
     /// <summary>Gets all messages for a conversation.</summary>
     Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(string conversationId, CancellationToken ct = default);
 
-    /// <summary>Gets all events for a conversation, sorted by timestamp.</summary>
-    Task<IReadOnlyList<ConversationEvent>> GetEventsAsync(string conversationId, CancellationToken ct = default);
+    /// <summary>Gets all tasks for a conversation.</summary>
+    Task<IReadOnlyList<ConversationTask>> GetTasksAsync(string conversationId, CancellationToken ct = default);
 
-    /// <summary>Gets the latest N events for a conversation.</summary>
-    Task<IReadOnlyList<ConversationEvent>> GetLatestEventsAsync(string conversationId, int limit, CancellationToken ct = default);
+    /// <summary>Inserts or updates a task for a conversation.</summary>
+    Task UpsertTaskAsync(ConversationTask task, CancellationToken ct = default);
 
-    /// <summary>Gets a paged timeline of events and messages.</summary>
-    Task<PagedTimelineResult> GetTimelineAsync(string conversationId, int limit = 50, string? exclusiveStartKey = null, bool forward = true, CancellationToken ct = default);
+    /// <summary>Saves the raw latest signals object for a conversation.</summary>
+    Task UpsertSignalsAsync(string conversationId, Application.DTOs.LlmSignals signals, CancellationToken ct = default);
 
-    /// <summary>Appends events to a conversation (append-only).</summary>
-    Task UpsertEventsAsync(string conversationId, IEnumerable<ConversationEvent> events, CancellationToken ct = default);
+    /// <summary>Gets the latest signals for a conversation (if any).</summary>
+    Task<Application.DTOs.LlmSignals?> GetSignalsAsync(string conversationId, CancellationToken ct = default);
 }
-
-public record PagedTimelineResult(
-    IReadOnlyList<TimelineItem> Items,
-    string? LastEvaluatedKey);
-
-public record TimelineItem(
-    string Type, // "message" or "{event_type}"
-    object Data, // NormalizedMessage or ConversationEvent
-    DateTimeOffset Timestamp);

@@ -19,5 +19,5 @@ public interface IPersistenceEventPublisher
     Task PublishMessageAsync(NormalizedMessage message, CancellationToken ct = default);
     Task PublishSummaryAsync(string conversationId, string summary, string lastHash, CancellationToken ct = default);
     Task PublishFactsAsync(string conversationId, IEnumerable<Domain.Entities.ConversationFact> facts, CancellationToken ct = default);
-    Task PublishEventAsync(ConversationEvent @event, CancellationToken ct = default);
+    Task PublishNotificationAsync(string conversationId, string type, object payload, CancellationToken ct = default);
 }

@@ -11,10 +11,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Message>          Messages          => Set<Message>();
     public DbSet<ConversationState> ConversationStates => Set<ConversationState>();
     public DbSet<ConversationFact>  ConversationFacts  => Set<ConversationFact>();
+    public DbSet<ConversationTask>  ConversationTasks  => Set<ConversationTask>();
     public DbSet<RealStateAgency>   RealStateAgencies  => Set<RealStateAgency>();
     public DbSet<RealStateBroker>   RealStateBrokers   => Set<RealStateBroker>();
     public DbSet<BrokerData>        BrokersData        => Set<BrokerData>();
-    public DbSet<ConversationEvent> ConversationEvents => Set<ConversationEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,8 +74,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             b.HasKey(e => e.ConversationId);
             b.Property(e => e.LastMessageTimestamp).HasConversion(
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
-            b.Property(e => e.LastActivityTimestamp).HasConversion(
-                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.Property(e => e.LastActivityTimestamp);
             b.Property(e => e.CreatedAt).HasConversion(
                 v => v.ToString("O"), v => DateTimeOffset.Parse(v));
             b.Property(e => e.Mode).HasConversion<int>();
@@ -129,10 +128,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ── ConversationEvent ──
-        modelBuilder.Entity<ConversationEvent>(b =>
+        // ── ConversationTask ──
+        modelBuilder.Entity<ConversationTask>(b =>
         {
-            b.HasKey(e => new { e.ConversationId, e.Timestamp, e.Type });
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => new { e.ConversationId, e.Type }).IsUnique();
+            b.Property(e => e.CreatedAt).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
+            b.Property(e => e.UpdatedAt).HasConversion(
+                v => v.ToString("O"), v => DateTimeOffset.Parse(v));
         });
     }
 }

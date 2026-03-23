@@ -37,7 +37,7 @@ public class NatsPublisherTests
 
         // Assert
         _jsMock.Verify(x => x.PublishAsync(
-            It.Is<string>(s => s == "message.received"), 
+            It.Is<string>(s => s == "message.received.conv1"), 
             It.IsAny<string>(), 
             default, default, default), Times.Once);
     }
@@ -50,7 +50,7 @@ public class NatsPublisherTests
 
         // Assert
         _jsMock.Verify(x => x.PublishAsync(
-            It.Is<string>(s => s == "persist.summary"), 
+            It.Is<string>(s => s == "persist.summary.conv1"), 
             It.IsAny<string>(), 
             default, default, default), Times.Once);
     }
