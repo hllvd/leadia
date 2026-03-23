@@ -49,13 +49,21 @@ DO NOT:
 - Create events from assumptions
 - Merge multiple actions into one
 
-If no clear event happened → return empty array []
+Do NOT create events just to fill the array. Empty events are valid.
 
 STANDARD EVENT TYPES (use only these when applicable):
 
 Communication:
 - broker_asked_question
+- customer_asked_question
+- broker_replied
 - customer_replied
+
+Commitments & Follow-ups:
+- broker_committed_action
+- customer_committed_action
+- broker_promised_followup
+- followup_scheduled
 
 Property Flow:
 - broker_sent_property
@@ -74,47 +82,55 @@ Documents / Financial:
 - customer_sent_documents
 - broker_requested_financial_info
 
-Follow-up / Time:
-- broker_promised_followup
-- followup_scheduled
-
 EVENT MAPPING RULES:
 
-1. Questions:
+1. Replies & Answers:
+Any direct answer to a previous question (including "Sim", "Não", numbers, or short answers):
+→ customer_replied OR broker_replied
+Note: Replying AND committing to do something generates two distinct events (e.g., "Sim, vou enviar os documentos" → `customer_replied` AND `customer_committed_action`).
+
+2. Commitments (Future Intent):
+When an actor explicitly promises to perform a specific action (e.g., "vou verificar", "irei mandar os papeis"):
+→ broker_committed_action OR customer_committed_action
+Note: Description MUST include the specific intended action (e.g., "Prometeu enviar os documentos"). DO NOT use vague generic descriptions like "Responde que pode".
+
+3. Follow-up & Time:
+If an actor will communicate later without specifying an exact time (e.g., "te chamo depois", "nos falamos"):
+→ broker_promised_followup
+If setting an explicit and precise time (e.g., "às 9h", "10:30"):
+→ followup_scheduled
+
+If only relative time is mentioned (e.g., "amanhã", "mais tarde"):
+→ broker_committed_action OR broker_promised_followup
+Note: DO NOT convert general commitments into scheduled events unless time is explicit. DO NOT treat every "Sim" or agreement as a follow-up.
+
+4. Questions:
 If a message contains a clear question:
-→ broker_asked_question OR customer_replied
+→ broker_asked_question OR customer_asked_question
 
-2. Documents:
-If broker asks for documents:
-→ broker_requested_documents
-
+5. Documents:
+If broker asks for documents/financial info:
+→ broker_requested_documents OR broker_requested_financial_info
 If customer sends documents:
 → customer_sent_documents
 
-3. Visit:
+6. Visit:
 If broker suggests visit:
 → broker_suggested_visit
-
-If customer confirms:
+If customer confirms priority/intent for visit:
 → customer_confirmed_visit
+If exactly defining time/date for a visit:
+→ broker_requested_visit_time OR visit_scheduled
 
-If defining time:
-→ broker_requested_visit_time
-
-4. Follow-up:
-If someone says:
-- "te chamo amanhã"
-- "te aviso depois"
-- "falo contigo às 9"
-
-→ broker_promised_followup OR followup_scheduled
-
-5. Property:
+7. Property:
 If broker sends property info/media:
 → broker_sent_property
-
-If customer asks for details:
+If customer asks for details/prices:
 → customer_requested_property_info
+If customer shows interest:
+→ customer_showed_interest
+If customer rejects it:
+→ customer_rejected_property
 
 EVENT QUALITY RULES:
 
