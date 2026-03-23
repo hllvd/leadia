@@ -4,9 +4,11 @@ using Infrastructure.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using NATS.Client.Core;
+using System.IO;
 
 namespace Integration;
 
@@ -19,6 +21,13 @@ public class MessagingAppTestFactory : WebApplicationFactory<Program>
     {
         Environment.SetEnvironmentVariable("INTEGRATION_TEST", "true");
         builder.UseEnvironment("Testing");
+
+        // Provide necessary configuration that would normally come from config.json
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            // Use the centralized config loader to find configs in the solution root
+            Infrastructure.Configuration.ConfigLoader.Apply(config);
+        });
 
         builder.ConfigureServices(services =>
         {

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
+using Application.Interfaces;
 using PersistenceWorker;
 using System.Text.Json;
 

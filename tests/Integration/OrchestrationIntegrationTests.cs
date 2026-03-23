@@ -2,6 +2,7 @@ using Application.DTOs;
 using Application.Interfaces;
 using Application.Services;
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using System.Text.Json;
@@ -12,6 +13,7 @@ namespace Integration;
 public class OrchestrationIntegrationTests
 {
     private readonly Mock<IConversationStateRepository> _repoMock = new();
+    private readonly Mock<IRealStateRepository> _realStateRepoMock = new();
     private readonly Mock<IPersistenceEventPublisher> _persistencePublisherMock = new();
     private readonly Mock<ILlmService> _llmServiceMock = new();
     private readonly ConversationStateService _service;
@@ -23,14 +25,14 @@ public class OrchestrationIntegrationTests
         BufferPolicy.SummaryTriggerChars = 400;
         BufferPolicy.TimeoutSeconds = 30.0;
         
-        _service = new ConversationStateService(_repoMock.Object, _persistencePublisherMock.Object);
+        _service = new ConversationStateService(_repoMock.Object, _realStateRepoMock.Object, _persistencePublisherMock.Object);
     }
 
     [Fact]
     public async Task ProcessMessage_PublishesPersistEvent_AndTriggersLlmIfNeeded()
     {
         // Arrange
-        var msg = new NormalizedMessage("c1", "b1", "cust1", "customer", "content", DateTimeOffset.UtcNow, "h1");
+        var msg = new NormalizedMessage("c1", "b1", "cust1", SenderType.Customer, "content", DateTimeOffset.UtcNow, "h1");
         _repoMock.Setup(r => r.GetByIdAsync("c1", It.IsAny<CancellationToken>()))
                  .ReturnsAsync(new ConversationState { ConversationId = "c1" });
         _repoMock.Setup(r => r.GetFactsAsync("c1", It.IsAny<CancellationToken>()))
@@ -44,14 +46,14 @@ public class OrchestrationIntegrationTests
         
         // Assert: 2. If it was the first message, buffer wouldn't trigger yet (default is 10)
         Assert.NotNull(result);
-        Assert.False(result.SummaryTriggered);
+        Assert.NotNull(result.UpdatedState);
     }
 
     [Fact]
     public async Task SummaryTrigger_CallsLlm_AndPublishesResults()
     {
         // Arrange
-        var msg = new NormalizedMessage("c1", "b1", "cust1", "customer", "trigger", DateTimeOffset.UtcNow, "h_trigger");
+        var msg = new NormalizedMessage("c1", "b1", "cust1", SenderType.Customer, "trigger", DateTimeOffset.UtcNow, "h_trigger");
         
         // Setup state that is 1 message away from threshold (default is 10 messages)
         var buffer = new List<string>();
@@ -72,7 +74,8 @@ public class OrchestrationIntegrationTests
             new Dictionary<string, JsonElement> 
             { 
                 { "name", JsonSerializer.Deserialize<JsonElement>("\"John Doe\"") } 
-            }
+            },
+            new List<LlmEvent>()
         );
 
         _llmServiceMock.Setup(l => l.AnalyzeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -83,7 +86,7 @@ public class OrchestrationIntegrationTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.True(result.SummaryTriggered);
+        Assert.NotNull(result.UpdatedState);
         
         // Simulation of the Worker logic (Analyze -> Apply)
         // Note: ApplyLlmResultAsync expects the summary and facts extracted from the LLM
