@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
+using NATS.Client.KeyValueStore;
 using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
@@ -21,6 +22,7 @@ public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
     private readonly INatsJSContext _js;
+    private readonly INatsKVContext _kv;
     private readonly IAmazonDynamoDB _db;
     private readonly IMessageStorage _s3Storage;
     private readonly string _tableName;
@@ -35,6 +37,7 @@ public class Worker : BackgroundService
     {
         _logger = logger;
         _js = js ?? new NatsJSContext(connection);
+        _kv = new NatsKVContext(_js);
         _db = db;
         _s3Storage = s3Storage;
         bool isTest = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEST"));
@@ -63,6 +66,22 @@ public class Worker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogWarning("Stream/Consumer creation skipped or failed. NATS might need manual setup. Error: {Error}", ex.Message);
+        }
+
+        // 1.5 Ensure KV Store for session flushes exists
+        INatsKVStore? kvStore = null;
+        try
+        {
+            var kvConfig = new NatsKVConfig("session_flushes")
+            {
+                MaxAge = TimeSpan.FromMinutes(_flushIntervalMinutes)
+            };
+            kvStore = await _kv.CreateStoreAsync(kvConfig, stoppingToken);
+            _ = Task.Run(() => WatchSessionFlushesAsync(kvStore, stoppingToken), stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize or watch KV store 'session_flushes'.");
         }
 
         // 2. Consume messages
@@ -131,6 +150,44 @@ public class Worker : BackgroundService
                 _logger.LogError(ex, "Failed to persist event to DynamoDB.");
                 // NATS will re-deliver after AckWait (60s)
             }
+        }
+    }
+
+    private async Task WatchSessionFlushesAsync(INatsKVStore store, CancellationToken ct)
+    {
+        _logger.LogInformation("Starting KV Watcher for session_flushes...");
+        try
+        {
+            await foreach (var entry in store.WatchAsync<string>(cancellationToken: ct))
+            {
+                // Action is standard DEL or PURGE (expiry)
+                if (entry.Operation == NatsKVOperation.Del || entry.Operation == NatsKVOperation.Purge)
+                {
+                    var convId = entry.Key;
+                    _logger.LogInformation("Flush timer expired for conversation {ConversationId}. Triggering flush...", convId);
+                    
+                    var payloadStr = JsonSerializer.Serialize(new { conversation_id = convId });
+                    using var doc = JsonDocument.Parse(payloadStr);
+                    
+                    // We dispatch it to avoid blocking the watcher loop
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await HandleFlushMessagesAsync(doc.RootElement, ct);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error executing delayed flush for {ConversationId}", convId);
+                        }
+                    }, ct);
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "KV Watcher failed.");
         }
     }
 
@@ -205,16 +262,17 @@ public class Worker : BackgroundService
         bool wasBuffering = buffResponse.Attributes.TryGetValue("is_buffering", out var isBufferingAttr) && isBufferingAttr.BOOL;
         if (!wasBuffering)
         {
-            // Publish delayed NATS event
-            var flushPayload = new { type = "flush.messages", payload = new { conversation_id = convId } };
-            var natsDelay = $"{_flushIntervalMinutes}m";
-            
-            var headers = new NatsHeaders { { "Nats-Delay", natsDelay } };
-            var json = JsonSerializer.Serialize(flushPayload);
-            
-            // We need to publish to JetStream. Since we only injected INatsJSContext, we can use it.
-            await _js.PublishAsync("persist.flush", json, headers: headers, cancellationToken: ct);
-            _logger.LogInformation("Started {Delay} delay before flushing messages for conversation {ConversationId}", natsDelay, convId);
+            // Publish KV event to start the TTL timer
+            try 
+            {
+                var store = await _kv.GetStoreAsync("session_flushes", ct);
+                await store.PutAsync(convId, "active", cancellationToken: ct);
+                _logger.LogInformation("Started {Delay}m KV delay before flushing messages for conversation {ConversationId}", _flushIntervalMinutes, convId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to put session marker in KV store for {ConversationId}", convId);
+            }
         }
 
         // 2. Update metadata (SUM#) row with last_message_id and last_updated
@@ -381,7 +439,8 @@ public class Worker : BackgroundService
                         {
                             { _primaryKey, new AttributeValue { S = $"CONV#{convId}" } },
                             { _sortKey, new AttributeValue { S = "BUFF#" } }
-                        }
+                        },
+                        ConditionExpression = "attribute_exists(messages)"
                     }
                 },
                 new TransactWriteItem

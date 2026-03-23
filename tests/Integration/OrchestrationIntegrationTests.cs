@@ -16,6 +16,7 @@ public class OrchestrationIntegrationTests
     private readonly Mock<IRealStateRepository> _realStateRepoMock = new();
     private readonly Mock<IPersistenceEventPublisher> _persistencePublisherMock = new();
     private readonly Mock<ILlmService> _llmServiceMock = new();
+    private readonly Mock<IConfiguration> _configMock = new();
     private readonly ConversationStateService _service;
 
     public OrchestrationIntegrationTests()
@@ -25,7 +26,7 @@ public class OrchestrationIntegrationTests
         BufferPolicy.SummaryTriggerChars = 400;
         BufferPolicy.TimeoutSeconds = 30.0;
         
-        _service = new ConversationStateService(_repoMock.Object, _realStateRepoMock.Object, _persistencePublisherMock.Object);
+        _service = new ConversationStateService(_repoMock.Object, _realStateRepoMock.Object, _persistencePublisherMock.Object, _configMock.Object);
     }
 
     [Fact]
