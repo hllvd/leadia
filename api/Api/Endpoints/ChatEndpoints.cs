@@ -1,5 +1,6 @@
 using Application.Interfaces;
 using Application.Services;
+using Application.DTOs;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Constants;
@@ -129,11 +130,23 @@ public static class ChatEndpoints
             var facts    = await convService.GetFactsAsync(conversationId, ct);
             var summary  = await convService.GetSummaryAsync(conversationId, ct);
             var messages = await convService.GetMessagesAsync(conversationId, ct);
+            var tasks    = await convService.GetTasksAsync(conversationId, ct);
+            var signals  = await convService.GetSignalsAsync(conversationId, ct);
             
             return Results.Ok(new
             {
                 summary,
                 facts = facts.Select(f => new { name = f.FactName, value = f.Value, confidence = f.Confidence }),
+                signals,
+                tasks = tasks.Select(t => new { 
+                    id = t.Id,
+                    type = t.Type,
+                    status = t.Status,
+                    owner = t.Owner,
+                    description = t.Description,
+                    metadata = t.Metadata,
+                    updated_at = t.UpdatedAt
+                }),
                 messages = messages.Select(m => new { 
                     sender = m.SenderType.ToString().ToLower(), 
                     text = m.Text, 

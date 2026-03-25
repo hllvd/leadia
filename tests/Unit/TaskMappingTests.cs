@@ -120,4 +120,28 @@ public class TaskMappingTests
         // Verify UpsertTaskAsync was never called for followup task because status remains the same
         _repoMock.Verify(r => r.UpsertTaskAsync(It.Is<ConversationTask>(t => t.Type == "followup"), default), Times.Never);
     }
+
+    [Fact]
+    public async Task ApplyLlmResult_HasNewQuestion_IncludesUserQuestionInMetadata()
+    {
+        var convId = "c1";
+        var questionText = "Posso levar meus filhos?";
+        
+        _repoMock.Setup(r => r.GetByIdAsync(convId, default)).ReturnsAsync(new ConversationState { ConversationId = convId });
+        _repoMock.Setup(r => r.GetFactsAsync(convId, default)).ReturnsAsync([]);
+        _repoMock.Setup(r => r.GetTasksAsync(convId, default)).ReturnsAsync([]);
+
+        var response = new LlmResponse("Test summary", null, 
+            new LlmSignals { HasNewQuestion = true },
+            new LlmContext(new LlmLastAction("question", "customer", questionText), null, null)
+        );
+
+        await _service.ApplyLlmResultAsync(convId, response);
+
+        _repoMock.Verify(r => r.UpsertTaskAsync(It.Is<ConversationTask>(t => 
+            t.Type == "question" && 
+            t.Metadata.ContainsKey("user_question") && 
+            t.Metadata["user_question"] == questionText
+        ), default), Times.Once);
+    }
 }

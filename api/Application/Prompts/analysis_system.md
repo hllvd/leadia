@@ -105,7 +105,7 @@ Context provides structured details to support backend task creation.
   - followup → if promising future action
   - other → anything else
 - actor = who sent the NEW MESSAGE
-- description = short, objective PT-BR description (e.g., "Sugeriu visita", "Perguntou valor do imóvel")
+- description = short, objective PT-BR description. **IMPORTANT**: if type is 'question', this MUST be the verbatim or very accurate question text (e.g., "Posso levar meus filhos?")
 
 2. Visit Context:
 - If date mentioned (e.g., "amanhã", "sexta", "25/03"):

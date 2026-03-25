@@ -146,9 +146,11 @@ function CollapsibleSection({ title, count, color, defaultOpen = true, children 
   )
 }
 
-function FactsPanel({ facts, summary, allFacts, factLabels, events }) {
+function FactsPanel({ facts, summary, allFacts, factLabels, signals, tasks }) {
   const detected = allFacts.filter(k => facts[k] !== undefined)
   const missing  = allFacts.filter(k => facts[k] === undefined)
+
+  const activeSignals = signals ? Object.entries(signals).filter(([_, v]) => v === true).map(([k]) => k) : []
 
   return (
     <div style={{
@@ -168,7 +170,76 @@ function FactsPanel({ facts, summary, allFacts, factLabels, events }) {
         </p>
       </div>
 
-      <CollapsibleSection title="✅ Detectados" count={detected.length} color="var(--green)">
+      <CollapsibleSection title="📡 Sinais" count={activeSignals.length} color="var(--blue)">
+        {activeSignals.length === 0 ? (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Nenhum sinal ativo</p>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {activeSignals.map(s => (
+              <span key={s} style={{
+                fontSize: '0.65rem',
+                padding: '2px 8px',
+                borderRadius: 4,
+                background: 'rgba(59,130,246,0.1)',
+                color: 'var(--blue)',
+                fontWeight: 600,
+                border: '1px solid rgba(59,130,246,0.2)'
+              }}>
+                {s.replace(/([A-Z])/g, ' $1').toLowerCase()}
+              </span>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="📋 Tarefas" count={tasks.length} color="var(--purple)">
+        {tasks.length === 0 ? (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Nenhuma tarefa ativa</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {tasks.map(t => (
+              <div key={t.id} style={{ 
+                fontSize: '0.82rem', 
+                padding: '8px',
+                borderRadius: 8,
+                background: 'var(--surface2)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize' }}>{t.type}</span>
+                  <span style={{ 
+                    fontSize: '0.65rem', 
+                    padding: '2px 6px', 
+                    borderRadius: 4,
+                    background: t.status === 'open' ? 'var(--green-bg)' : 'var(--surface3)',
+                    color: t.status === 'open' ? 'var(--green)' : 'var(--muted)',
+                    fontWeight: 600
+                  }}>{t.status}</span>
+                </div>
+                <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{t.description}</div>
+                {Object.keys(t.metadata || {}).length > 0 && (
+                  <div style={{ 
+                    marginTop: 4, 
+                    padding: 4, 
+                    borderRadius: 4, 
+                    background: 'rgba(0,0,0,0.05)', 
+                    fontSize: '0.7rem' 
+                  }}>
+                    {Object.entries(t.metadata).map(([k,v]) => (
+                      <div key={k}><b>{k}:</b> {v}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="✅ Fatos" count={detected.length} color="var(--green)">
         {detected.length === 0 ? (
           <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Nenhum ainda</p>
         ) : (
@@ -198,50 +269,6 @@ function FactsPanel({ facts, summary, allFacts, factLabels, events }) {
           </div>
         )}
       </CollapsibleSection>
-
-      <CollapsibleSection title="⏳ Não detectados" count={missing.length} color="var(--yellow)" defaultOpen={false}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {missing.map(k => (
-            <div key={k} style={{
-              fontSize: '0.82rem',
-              color: 'var(--muted)',
-              padding: '4px 8px',
-              borderRadius: 6,
-              background: 'var(--surface2)',
-            }}>
-              {factLabels[k] ?? k}
-            </div>
-          ))}
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection title="📡 Eventos" count={events.length} color="#3b82f6" defaultOpen={true}>
-        {events.length === 0 ? (
-          <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Nenhum evento detectado ainda</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {events.map((e, i) => (
-              <div key={i} style={{ 
-                fontSize: '0.82rem', 
-                borderBottom: i < events.length - 1 ? '1px solid var(--border)' : 'none',
-                paddingBottom: i < events.length - 1 ? 8 : 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>{e.type}</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--muted)' }}>{e.actor}</span>
-                </div>
-                <div style={{ color: 'var(--text)', opacity: 0.8 }}>{e.description}</div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: 2 }}>
-                  {new Date(e.timestamp).toLocaleTimeString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CollapsibleSection>
     </div>
   )
 }
@@ -252,7 +279,8 @@ export default function ChatLab() {
   const [messages, setMessages] = useState([])
   const [facts, setFacts]       = useState({})
   const [summary, setSummary]   = useState('')
-  const [events, setEvents]     = useState([])
+  const [signals, setSignals]   = useState(null)
+  const [tasks, setTasks]       = useState([])
   const [allFacts, setAllFacts] = useState([])
   const [factLabels, setFactLabels] = useState({})
 
@@ -292,9 +320,8 @@ export default function ChatLab() {
               : data.facts
             setFacts(factsObj)
           }
-          if (data.events) {
-            setEvents(data.events)
-          }
+          if (data.signals) setSignals(data.signals)
+          if (data.tasks) setTasks(data.tasks)
           if (data.messages?.length) {
             setMessages(prev => {
               if (prev.length !== data.messages.length) return data.messages
@@ -322,7 +349,8 @@ export default function ChatLab() {
       if (data.reply) push('broker', data.reply)
       if (data.facts?.length)  setFacts(Object.fromEntries(data.facts.map(f => [f.name, f])))
       if (data.summary)        setSummary(data.summary)
-      if (data.events)         setEvents(data.events)
+      if (data.signals)        setSignals(data.signals)
+      if (data.tasks)          setTasks(data.tasks)
     } catch (err) {
       push('broker', `❌ Erro: ${err.message}`)
     } finally {
@@ -340,7 +368,8 @@ export default function ChatLab() {
       const data = await sendMessage(brokerNumber, customerNumber, text, 'broker')
       if (data.facts?.length)  setFacts(Object.fromEntries(data.facts.map(f => [f.name, f])))
       if (data.summary)        setSummary(data.summary)
-      if (data.events)         setEvents(data.events)
+      if (data.signals)        setSignals(data.signals)
+      if (data.tasks)          setTasks(data.tasks)
     } catch (err) {
       push('broker', `❌ Erro: ${err.message}`)
     } finally {
@@ -353,7 +382,7 @@ export default function ChatLab() {
       <div className="page-header" style={{ marginBottom: 20 }}>
         <div style={{ flex: 1 }}>
           <h1 className="page-title">Chat Lab</h1>
-          <p className="page-sub">Simule a conversa entre cliente e corretor — veja os fatos sendo extraídos em tempo real</p>
+          <p className="page-sub">Simule a conversa entre cliente e corretor — veja os sinais e tarefas em tempo real</p>
         </div>
         
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--surface)', padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)' }}>
@@ -382,7 +411,8 @@ export default function ChatLab() {
               setMessages([])
               setFacts({})
               setSummary('')
-              setEvents([])
+              setSignals(null)
+              setTasks([])
             }}
           >
             🔄 Reset
@@ -411,7 +441,14 @@ export default function ChatLab() {
           loading={loadingBroker}
           side="broker"
         />
-        <FactsPanel facts={facts} summary={summary} allFacts={allFacts} factLabels={factLabels} events={events} />
+        <FactsPanel 
+          facts={facts} 
+          summary={summary} 
+          allFacts={allFacts} 
+          factLabels={factLabels} 
+          signals={signals} 
+          tasks={tasks} 
+        />
       </div>
     </div>
   )

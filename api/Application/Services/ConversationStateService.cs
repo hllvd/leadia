@@ -246,7 +246,11 @@ public class ConversationStateService(
         else if (!signals.HasUnansweredQuestion) qStatus = "completed";
         // If it was open and has_unanswered_question is true, it stays open.
         
-        if (UpsertIfNeeded(qTask, qStatus, defaultOwner, "Answer customer's questions", null))
+        var qMeta = context?.LastAction?.Type == "question" && !string.IsNullOrEmpty(context.LastAction.Description)
+            ? new Dictionary<string, string> { { "user_question", context.LastAction.Description } }
+            : null;
+
+        if (UpsertIfNeeded(qTask, qStatus, defaultOwner, "Answer customer's questions", qMeta))
             toUpsert.Add(qTask);
 
         // 2. Visit Task
@@ -354,6 +358,16 @@ public class ConversationStateService(
 
         return llmContext;
     }
+
+    /// <summary>Returns all tasks for a conversation.</summary>
+    public async Task<IReadOnlyList<ConversationTask>> GetTasksAsync(
+        string conversationId, CancellationToken ct = default)
+        => await repository.GetTasksAsync(conversationId, ct);
+
+    /// <summary>Returns the latest signals for a conversation.</summary>
+    public async Task<LlmSignals?> GetSignalsAsync(
+        string conversationId, CancellationToken ct = default)
+        => await repository.GetSignalsAsync(conversationId, ct);
 
     /// <summary>Returns all messages for a conversation.</summary>
     public async Task<IReadOnlyList<NormalizedMessage>> GetMessagesAsync(
