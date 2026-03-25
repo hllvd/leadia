@@ -99,7 +99,7 @@ public class LlmService : ILlmService
                 parsed = parsed with
                 {
                     Signals = parsed.Signals ?? new LlmSignals(),
-                    Context = parsed.Context ?? new LlmContext(null, null, null)
+                    Context = parsed.Context ?? new LlmContext(null, null, null, null)
                 };
             }
 

@@ -101,6 +101,7 @@ public class ConversationStateService(
         return new ProcessResult(state);
     }
 
+
     /// <summary>
     /// Applies LLM fact and summary results back to the conversation state.
     /// Call this after receiving the LLM response.
@@ -283,11 +284,35 @@ public class ConversationStateService(
         if (UpsertIfNeeded(dTask, dStatus, defaultOwner, "Handle pending documents", dMeta))
             toUpsert.Add(dTask);
 
-        // 4. Follow-up Task
+        // 4. Call / Meeting Task
+        var cTask = GetOrCreateTask("call");
+        string cStatus = cTask.Status;
+        if (signals.CallSuggested || signals.HasPendingCall) cStatus = "open";
+        if (signals.CallConfirmed) cStatus = "completed";
+
+        var cMeta = context?.Call != null ? new Dictionary<string, string>
+        {
+            { "proposed_date", context.Call.ProposedDate ?? "" },
+            { "proposed_time", context.Call.ProposedTime ?? "" },
+            { "type", context.Call.Type ?? "" }
+        } : null;
+
+        if (UpsertIfNeeded(cTask, cStatus, defaultOwner, "Schedule a call or meeting", cMeta))
+            toUpsert.Add(cTask);
+
+        // 5. Follow-up Task
+        // pending if the LLM signals it, or if any other signal indicates the conversation is unresolved.
+        // This ensures the follow-up task is reliably set without relying solely on LLM phrase detection.
         var fTask = GetOrCreateTask("followup");
         string fStatus = fTask.Status;
-        if (signals.NeedsFollowup) fStatus = "pending";
-        else if (!signals.NeedsFollowup) fStatus = "completed";
+        bool needsFollowup = signals.NeedsFollowup
+                          || signals.HasUnansweredQuestion
+                          || signals.HasPendingVisit
+                          || signals.HasPendingCall
+                          || signals.HasPendingDocuments;
+
+        if (needsFollowup) fStatus = "pending";
+        else fStatus = "completed";
 
         if (UpsertIfNeeded(fTask, fStatus, "broker", "Follow up with customer", null))
             toUpsert.Add(fTask);
@@ -347,7 +372,7 @@ public class ConversationStateService(
         if (buffer.Count == 0) return null;
 
         var facts = await repository.GetFactsAsync(conversationId, ct);
-        var llmContext = LlmContextBuilder.Build(state.RollingSummary, facts, buffer, string.Empty);
+        var llmContext = LlmContextBuilder.Build(state.RollingSummary, facts, buffer, string.Empty, DateTimeOffset.UtcNow);
         
         if (_debug) Console.WriteLine($"[LOUD] TriggerAnalysisAsync: Built context ({llmContext.Length} chars) for {conversationId}");
 

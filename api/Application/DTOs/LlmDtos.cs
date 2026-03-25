@@ -21,12 +21,16 @@ public record LlmSignals(
     [property: JsonPropertyName("visit_suggested")] bool VisitSuggested = false,
     [property: JsonPropertyName("visit_confirmed")] bool VisitConfirmed = false,
     [property: JsonPropertyName("has_pending_documents")] bool HasPendingDocuments = false,
+    [property: JsonPropertyName("call_suggested")] bool CallSuggested = false,
+    [property: JsonPropertyName("has_pending_call")] bool HasPendingCall = false,
+    [property: JsonPropertyName("call_confirmed")] bool CallConfirmed = false,
     [property: JsonPropertyName("customer_engaged")] bool CustomerEngaged = false,
     [property: JsonPropertyName("customer_unresponsive")] bool CustomerUnresponsive = false);
 
 public record LlmContext(
     [property: JsonPropertyName("last_action")] LlmLastAction? LastAction,
     [property: JsonPropertyName("visit")] LlmVisitContext? Visit,
+    [property: JsonPropertyName("call")] LlmCallContext? Call,
     [property: JsonPropertyName("documents")] LlmDocumentsContext? Documents);
 
 public record LlmLastAction(
@@ -41,3 +45,8 @@ public record LlmVisitContext(
 public record LlmDocumentsContext(
     [property: JsonPropertyName("requested")] bool Requested = false,
     [property: JsonPropertyName("description")] string? Description = null);
+
+public record LlmCallContext(
+    [property: JsonPropertyName("proposed_date")] string? ProposedDate,
+    [property: JsonPropertyName("proposed_time")] string? ProposedTime,
+    [property: JsonPropertyName("type")] string? Type);

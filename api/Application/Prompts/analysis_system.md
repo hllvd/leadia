@@ -28,18 +28,26 @@ Return ONLY valid JSON with the following structure:
     "visit_suggested": "boolean",
     "visit_confirmed": "boolean",
     "has_pending_documents": "boolean",
+    "call_suggested": "boolean",
+    "has_pending_call": "boolean",
+    "call_confirmed": "boolean",
     "customer_engaged": "boolean",
     "customer_unresponsive": "boolean"
   },
   "context": {
     "last_action": {
-      "type": "question | visit | documents | followup | other | null",
+      "type": "question | visit | documents | call | followup | other | null",
       "actor": "broker | customer | null",
       "description": "string curto em PT-BR ou null"
     },
     "visit": {
       "proposed_date": "string | null",
       "proposed_time": "string | null"
+    },
+    "call": {
+      "proposed_date": "string | null",
+      "proposed_time": "string | null",
+      "type": "phone | video | in-person | null"
     },
     "documents": {
       "requested": "boolean",
@@ -69,20 +77,29 @@ DO NOT guess intent. Only mark signals when clearly supported.
 - has_unanswered_question = true → if there is a question in RECENT MESSAGES that has not been answered yet
 
 2. Follow-up:
-- needs_followup = true → if:
-  - someone promised to respond later (e.g., "te aviso", "vou ver e te falo")
-  - OR a question remains unanswered
-  - OR a request was made and not fulfilled yet
+- needs_followup = true → if ANY of the following is true:
+  - has_unanswered_question = true
+  - has_pending_visit = true
+  - has_pending_call = true
+  - has_pending_documents = true
+  - The last message in RECENT MESSAGES did not receive a reply from the other side
+  - Someone explicitly promised to respond later (e.g., "te aviso", "vou ver e te falo")
+- needs_followup = false → ONLY if the conversation is in a settled state: questions answered, visit confirmed or not started, documents delivered or not requested
 
 3. Visit Flow:
 - visit_suggested = true → if a visit is proposed in NEW MESSAGE
 - has_pending_visit = true → if a visit was suggested but not yet confirmed
 - visit_confirmed = true → if both sides agreed on visit (explicit confirmation)
 
-4. Documents / Financial:
+4. Call / Meeting Flow:
+- call_suggested = true → if a call or meeting (phone, video, in-person meeting) is proposed in NEW MESSAGE
+- has_pending_call = true → if a call was suggested but not yet confirmed
+- call_confirmed = true → if both sides agreed on a call or meeting
+
+5. Documents / Financial:
 - has_pending_documents = true → if documents or financial info were requested and not yet sent
 
-5. Engagement:
+6. Engagement:
 - customer_engaged = true → if customer is actively replying, asking questions, or interacting
 - customer_unresponsive = true → if the customer has not replied to a previous broker message that required response
 
@@ -101,6 +118,7 @@ Context provides structured details to support backend task creation.
 - Identify the main action in the NEW MESSAGE:
   - question → if asking something
   - visit → if suggesting, confirming, or discussing visit
+  - call → if suggesting, confirming, or discussing a phone call, video call, or meeting
   - documents → if requesting or sending documents
   - followup → if promising future action
   - other → anything else
@@ -109,14 +127,21 @@ Context provides structured details to support backend task creation.
 
 2. Visit Context:
 - If date mentioned (e.g., "amanhã", "sexta", "25/03"):
-  → proposed_date = exact text (DO NOT normalize)
+  → proposed_date = resolve to exact YYYY-MM-DD using CURRENT DATETIME as base.
 - If time mentioned (e.g., "15h", "10:30"):
-  → proposed_time
+  → proposed_time = normalize to HH:MM:SS format.
 - If not mentioned:
   → null
 - Only extract if related to visit
 
-3. Documents Context:
+3. Call Context:
+- If date mentioned: → proposed_date = resolve to exact YYYY-MM-DD using CURRENT DATETIME as base.
+- If time mentioned: → proposed_time = normalize to HH:MM:SS format.
+- type = "phone", "video", or "in-person" appropriately
+- If not mentioned: → null
+- Only extract if related to a call or meeting
+
+4. Documents Context:
 - requested = true → if documents/financial info explicitly requested in NEW MESSAGE
 - description = short PT-BR summary (e.g., "Solicitou comprovante de renda")
 - If not mentioned:

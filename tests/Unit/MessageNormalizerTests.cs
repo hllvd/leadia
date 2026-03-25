@@ -126,9 +126,9 @@ public class MessageNormalizerTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData(null!)]
-    public void GetS3FileName_Throws_OnNullOrWhitespace(string convId)
+    public void GetS3FileName_Throws_OnNullOrWhitespace(string? convId)
     {
         Assert.ThrowsAny<ArgumentException>(() =>
-            MessageNormalizer.GetS3FileName(convId, 1));
+            MessageNormalizer.GetS3FileName(convId!, 1));
     }
 }

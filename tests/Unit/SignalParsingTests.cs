@@ -61,7 +61,7 @@ public class SignalParsingTests
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         
         var response = JsonSerializer.Deserialize<LlmResponse>(json, options);
-        var context = response?.Context ?? new LlmContext(null, null, null);
+        var context = response?.Context ?? new LlmContext(null, null, null, null);
 
         Assert.NotNull(context.LastAction);
         Assert.Equal("broker", context.LastAction?.Actor);

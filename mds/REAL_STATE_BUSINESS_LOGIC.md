@@ -16,13 +16,28 @@ Tasks are actionable items derived from conversation signals. They serve as the 
 
 ### 1.2 Follow-up Tasks (`type: "followup"`)
 
-*   **Trigger**: The broker commits to a future action or a request remains unfulfilled.
-*   **Status**: Defaults to `pending` when active.
-*   **Example Conversation**:
-    > **Customer**: "Gostei muito do apartamento, mas preciso saber se o condomínio aceita pets."
+*   **Status**: `pending` when active, `completed` when all signals are resolved.
+*   **Owner**: Always `broker` — they are responsible for keeping the conversation moving.
+*   **Trigger**: Active when ANY of the following signals is true:
+    *   `has_unanswered_question: true` — a question was asked with no reply
+    *   `has_pending_visit: true` — a visit was suggested but not confirmed
+    *   `has_pending_call: true` — a call or meeting was suggested but not confirmed
+    *   `has_pending_documents: true` — documents were requested but not sent
+    *   `needs_followup: true` — an explicit commitment was made to respond later
+*   **Completion**: Automatically set to `completed` once all of the above signals are cleared (questions answered, visit confirmed/cancelled, call confirmed/cancelled, documents delivered).
+
+*   **Example Conversation that triggers follow-up**:
+    > **Customer**: "Gostei muito do apartamento no Leblon, mas preciso saber se o condomínio aceita pets."
     >
-    > **Broker**: "**Vou verificar essa informação com a administração do prédio e te aviso ainda hoje.**"
-*   **Signal**: The phrase *"Vou verificar... e te aviso"* triggers `needs_followup: true`.
+    > *(Broker has not replied yet → `has_unanswered_question: true` → follow-up: `pending`)*
+
+    > **Broker**: "Boa pergunta! Vou verificar e te aviso."
+    >
+    > *(Broker promised but hasn't confirmed → `needs_followup: true` → follow-up remains `pending`)*
+
+    > **Broker**: "Confirmado! O condomínio aceita pets de até 15kg."
+    >
+    > *(Question resolved → all signals false → follow-up: `completed`)*
 
 ### 1.3 Visit Tasks (`type: "visit"`)
 
@@ -35,6 +50,15 @@ Tasks are actionable items derived from conversation signals. They serve as the 
 *   **Trigger**: Documents or financial information are requested or discussed.
 *   **Signal**: `has_pending_documents`.
 *   **Metadata**: Includes a description of the requested items.
+
+### 1.5 Call / Meeting Tasks (`type: "call"`)
+
+*   **Trigger**: A phone call, video call, or in-person meeting is proposed.
+*   **Signals**: `call_suggested`, `has_pending_call`, `call_confirmed`.
+*   **Metadata**: Stores `proposed_date`, `proposed_time`, and `type` (`"phone"`, `"video"`, or `"in-person"`).
+*   **Flow**:
+    *   `open`: When a call is suggested or remains pending (`call_suggested || has_pending_call`).
+    *   `completed`: When both parties agree on the call (`call_confirmed`).
 
 ## 2. Signal Detection Rules
 

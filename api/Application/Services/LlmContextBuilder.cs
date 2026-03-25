@@ -17,13 +17,19 @@ public static class LlmContextBuilder
     /// <param name="facts">Current extracted facts.</param>
     /// <param name="buffer">Messages in the current buffer (oldest first).</param>
     /// <param name="incomingMessage">The latest incoming message text.</param>
+    /// <param name="currentDateTime">The current datetime to help resolve relative dates.</param>
     public static string Build(
         string rollingSummary,
         IEnumerable<ConversationFact> facts,
         IEnumerable<string> buffer,
-        string incomingMessage)
+        string incomingMessage,
+        DateTimeOffset currentDateTime)
     {
         var sb = new StringBuilder();
+
+        sb.AppendLine("CURRENT DATETIME");
+        sb.AppendLine(currentDateTime.ToString("yyyy-MM-ddTHH:mm:sszzz"));
+        sb.AppendLine();
 
         sb.AppendLine("SUMMARY");
         sb.AppendLine(rollingSummary);

@@ -39,7 +39,7 @@ public class FlowIntegrationTests
         // Phase 1: Customer asks a new question
         var response1 = new LlmResponse("Customer asked a question", null, 
             new LlmSignals { HasNewQuestion = true, HasUnansweredQuestion = true },
-            new LlmContext(new LlmLastAction("msg", "customer", ""), null, null)
+            new LlmContext(new LlmLastAction("msg", "customer", ""), null, null, null)
         );
 
         await _service.ApplyLlmResultAsync(convId, response1);
@@ -49,7 +49,7 @@ public class FlowIntegrationTests
         ), default), Times.Once);
 
         // Verify task transition notification fired
-        _publisherMock.Verify(p => p.PublishNotificationAsync(convId, "task_state", It.IsAny<object>(), default), Times.Once);
+        _publisherMock.Verify(p => p.PublishNotificationAsync(convId, "task_state", It.IsAny<object>(), default), Times.AtLeastOnce());
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class FlowIntegrationTests
         // Customer requests a visit
         var response = new LlmResponse("Customer requested visit", null, 
             new LlmSignals { VisitSuggested = true },
-            new LlmContext(new LlmLastAction("msg", "customer", ""), new LlmVisitContext("amanhã", null), null)
+            new LlmContext(new LlmLastAction("msg", "customer", ""), new LlmVisitContext("amanhã", null), null, null)
         );
 
         await _service.ApplyLlmResultAsync(convId, response);
@@ -71,6 +71,8 @@ public class FlowIntegrationTests
         _repoMock.Verify(r => r.UpsertTaskAsync(It.Is<ConversationTask>(t => 
             t.Type == "visit" && t.Status == "open" && t.Metadata.Values.Any(v => v.Contains("amanhã"))
         ), default), Times.Once);
+
+        _publisherMock.Verify(p => p.PublishNotificationAsync(convId, "task_state", It.IsAny<object>(), default), Times.AtLeastOnce());
     }
 
     [Fact]
@@ -84,7 +86,7 @@ public class FlowIntegrationTests
         // Broker requests documents
         var response = new LlmResponse("Broker requested documents", null, 
             new LlmSignals { HasPendingDocuments = true },
-            new LlmContext(new LlmLastAction("msg", "broker", ""), null, new LlmDocumentsContext(true, "CNH and Proof of address"))
+            new LlmContext(new LlmLastAction("msg", "broker", ""), null, null, new LlmDocumentsContext(true, "CNH and Proof of address"))
         );
 
         await _service.ApplyLlmResultAsync(convId, response);
@@ -92,6 +94,8 @@ public class FlowIntegrationTests
         _repoMock.Verify(r => r.UpsertTaskAsync(It.Is<ConversationTask>(t => 
             t.Type == "documents" && t.Status == "open" && t.Owner == "customer" && t.Metadata.Values.Any(v => v.Contains("CNH"))
         ), default), Times.Once);
+
+        _publisherMock.Verify(p => p.PublishNotificationAsync(convId, "task_state", It.IsAny<object>(), default), Times.AtLeastOnce());
     }
 
     [Fact]
@@ -104,7 +108,7 @@ public class FlowIntegrationTests
 
         var response = new LlmResponse("Needs follow up", null, 
             new LlmSignals { NeedsFollowup = true },
-            new LlmContext(new LlmLastAction("msg", "customer", ""), null, null)
+            new LlmContext(new LlmLastAction("msg", "customer", ""), null, null, null)
         );
 
         await _service.ApplyLlmResultAsync(convId, response);
@@ -112,6 +116,8 @@ public class FlowIntegrationTests
         _repoMock.Verify(r => r.UpsertTaskAsync(It.Is<ConversationTask>(t => 
             t.Type == "followup" && t.Status == "pending" && t.Owner == "broker"
         ), default), Times.Once);
+
+        _publisherMock.Verify(p => p.PublishNotificationAsync(convId, "task_state", It.IsAny<object>(), default), Times.AtLeastOnce());
     }
 
     [Fact]
