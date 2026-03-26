@@ -86,6 +86,7 @@ public class ConversationStateService(
         // ── 4. Update state fields ────────────────────────────────────────────
         state.LastMessageHash       = msg.MessageHash;
         state.LastMessageTimestamp  = msg.Timestamp;
+        state.LastMessageActor      = msg.SenderType == Domain.Enums.SenderType.Broker ? "broker" : "customer";
         state.LastActivityTimestamp = DateTimeOffset.UtcNow.ToString("O");
 
         state.BufferJson  = JsonSerializer.Serialize(buffer);

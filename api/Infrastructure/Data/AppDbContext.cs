@@ -97,6 +97,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<RealStateAgency>(b =>
         {
             b.HasKey(e => e.Id);
+            b.Property(e => e.NudgeTimeoutMinutes).HasDefaultValue(10);
+            b.Property(e => e.NudgeBrokerAfterMessages).HasDefaultValue(3);
             b.HasMany(e => e.BrokerAssignments)
              .WithOne(a => a.RealStateAgency)
              .HasForeignKey(a => a.RealStateAgencyId)

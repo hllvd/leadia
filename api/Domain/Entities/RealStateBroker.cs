@@ -9,6 +9,10 @@ public class RealStateBroker
     public string BrokerId { get; set; } = string.Empty;
     public ConversationMode Mode { get; set; } = ConversationMode.OnlyListening;
 
+    // nullable — null = use agency default
+    public int? NudgeTimeoutMinutes { get; set; } = null;
+    public int? NudgeBrokerAfterMessages { get; set; } = null;
+
     // Navigation
     public RealStateAgency? RealStateAgency { get; set; }
     public User? Broker { get; set; }

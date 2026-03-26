@@ -7,6 +7,10 @@ public class RealStateAgency
     public string Address { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
 
+    // Nudge configuration — broker-level overrides these if set
+    public int NudgeTimeoutMinutes { get; set; } = 10;
+    public int NudgeBrokerAfterMessages { get; set; } = 3;
+
     // Navigation
     public ICollection<RealStateBroker> BrokerAssignments { get; set; } = [];
 }

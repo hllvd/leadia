@@ -1,7 +1,13 @@
+using System.Threading;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 using Application.Interfaces;
 using Application.Services;
 using Domain.Entities;
 using Infrastructure.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -158,8 +164,16 @@ public class Worker : BackgroundService
                     }
                 }
 
-                // The background loop (CheckTriggersLoopAsync) will handle the LLM trigger
-                // based on inactivity or message count.
+                // If this was a broker message, schedule a delayed engagement check
+                if (normalized.SenderType == Domain.Enums.SenderType.Broker)
+                {
+                    _ = Task.Run(() => ScheduleEngagementCheckAsync(
+                        normalized.ConversationId,
+                        normalized.BrokerId,
+                        normalized.MessageHash,
+                        scope.ServiceProvider.GetRequiredService<IRealStateRepository>(),
+                        stoppingToken), stoppingToken);
+                }
 
                 await msg.AckAsync(cancellationToken: stoppingToken);
                 _logger.LogInformation("Successfully processed and Acked message {Hash}", normalized.MessageHash);
@@ -278,5 +292,54 @@ public class Worker : BackgroundService
             return "You are a professional assistant.";
         }
         catch { return "You are a professional assistant."; }
+    }
+
+    /// <summary>
+    /// Publishes a delayed engagement check event to NATS so the EngagementWorker
+    /// can nudge the customer if they haven't replied within the configured window.
+    /// </summary>
+    private async Task ScheduleEngagementCheckAsync(
+        string conversationId,
+        string brokerId,
+        string lastMessageHash,
+        IRealStateRepository realStateRepo,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Resolve broker + agency to get the configured timeout
+            var brokerAssignment = await realStateRepo.GetAssignmentsByBrokerIdAsync(brokerId, ct);
+            var agency           = brokerAssignment?.RealStateAgency;
+            var delayMinutes     = NudgeConfigResolver.GetTimeoutMinutes(brokerAssignment, agency);
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                conversationId,
+                lastMessageHash,
+                brokerId,
+                scheduledAt = DateTimeOffset.UtcNow
+            });
+
+            // Publish to the engagement stream with a delay header
+            var headers = new NatsHeaders
+            {
+                // NATS JetStream Delayed Delivery support
+                ["Nats-Delivery-Delay"] = $"{(int)TimeSpan.FromMinutes(delayMinutes).TotalSeconds}s"
+            };
+
+            await _js.PublishAsync(
+                subject: "conversation.engagement.check",
+                data: payload,
+                headers: headers,
+                cancellationToken: ct);
+
+            _logger.LogInformation(
+                "Scheduled engagement check for {Id} in {Min} minutes.",
+                conversationId, delayMinutes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to schedule engagement check for {Id}", conversationId);
+        }
     }
 }
