@@ -11,7 +11,4 @@ public class ConversationFact
     public string Value          { get; set; } = string.Empty;   // stored as string; parse at read time
     public double Confidence     { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
-
-    // Navigation
-    public ConversationState? Conversation { get; set; }
 }

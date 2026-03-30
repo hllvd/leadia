@@ -11,6 +11,12 @@ public static class NudgeConfigResolver
 {
     private const int FallbackTimeoutMinutes = 10;
     private const int FallbackAfterMessages  = 3;
+    private const bool FallbackEnabled       = false;
+
+    public static bool IsEnabled(RealStateBroker? broker, RealStateAgency? agency)
+        => broker?.NudgeEnabled
+        ?? agency?.NudgeEnabled
+        ?? FallbackEnabled;
 
     /// <summary>
     /// Returns the timeout in minutes before a nudge task is created,

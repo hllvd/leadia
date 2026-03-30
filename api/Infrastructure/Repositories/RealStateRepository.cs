@@ -71,6 +71,7 @@ public class RealStateRepository(AppDbContext db) : IRealStateRepository
     public async Task<RealStateBroker?> GetAssignmentsByBrokerIdAsync(string brokerId, CancellationToken ct = default)
     {
         return await db.RealStateBrokers
+            .Include(b => b.RealStateAgency)
             .FirstOrDefaultAsync(b => b.BrokerId == brokerId, ct);
     }
 

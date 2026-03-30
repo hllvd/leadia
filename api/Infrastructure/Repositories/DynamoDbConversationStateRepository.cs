@@ -57,7 +57,10 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
             BufferChars = item.ContainsKey("buffer_chars") ? int.Parse(item["buffer_chars"].N) : 0,
             BrokerId = item.GetValueOrDefault("broker_id")?.S ?? "",
             CustomerId = item.GetValueOrDefault("customer_id")?.S ?? "",
-            Mode = item.ContainsKey("mode") ? (ConversationMode)int.Parse(item["mode"].N) : ConversationMode.OnlyListening
+            Mode = item.ContainsKey("mode") ? (ConversationMode)int.Parse(item["mode"].N) : ConversationMode.OnlyListening,
+            LastMessageActor = item.GetValueOrDefault("last_actor")?.S ?? "",
+            ConsecutiveBrokerMessages = item.ContainsKey("consecutive_broker_msgs") ? int.Parse(item["consecutive_broker_msgs"].N) : 0,
+            CreatedAt = item.ContainsKey("created_at") ? DateTimeOffset.Parse(item["created_at"].S) : DateTimeOffset.UtcNow
         };
     }
 
@@ -78,7 +81,10 @@ public class DynamoDbConversationStateRepository : IConversationStateRepository
                 { "buffer_chars", new AttributeValue { N = state.BufferChars.ToString() } },
                 { "broker_id", new AttributeValue { S = state.BrokerId } },
                 { "customer_id", new AttributeValue { S = state.CustomerId } },
-                { "mode", new AttributeValue { N = ((int)state.Mode).ToString() } }
+                { "mode", new AttributeValue { N = ((int)state.Mode).ToString() } },
+                { "last_actor", new AttributeValue { S = state.LastMessageActor } },
+                { "consecutive_broker_msgs", new AttributeValue { N = state.ConsecutiveBrokerMessages.ToString() } },
+                { "created_at", new AttributeValue { S = state.CreatedAt.ToString("O") } }
             }
         };
 

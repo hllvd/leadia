@@ -8,6 +8,7 @@ public class RealStateAgency
     public string Description { get; set; } = string.Empty;
 
     // Nudge configuration — broker-level overrides these if set
+    public bool NudgeEnabled { get; set; } = false;
     public int NudgeTimeoutMinutes { get; set; } = 10;
     public int NudgeBrokerAfterMessages { get; set; } = 3;
 

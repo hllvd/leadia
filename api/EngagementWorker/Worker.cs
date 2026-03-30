@@ -112,7 +112,19 @@ public class Worker(
             return;
         }
 
-        logger.LogInformation("Conversation {Id} is still stale. Generating nudge task.", payload.ConversationId);
+        // Check threshold
+        var brokerAssignment = await realStateRepository.GetAssignmentsByBrokerIdAsync(payload.BrokerId, ct);
+        var agency           = brokerAssignment?.RealStateAgency;
+        var threshold        = NudgeConfigResolver.GetAfterMessages(brokerAssignment, agency);
+
+        if (state.ConsecutiveBrokerMessages < threshold)
+        {
+            logger.LogInformation("Conversation {Id} hasn't reached nudge threshold ({Count}/{Threshold}).", 
+                payload.ConversationId, state.ConsecutiveBrokerMessages, threshold);
+            return;
+        }
+
+        logger.LogInformation("Conversation {Id} is still stale and reached threshold. Generating nudge task.", payload.ConversationId);
 
         // Generate the nudge text using the LLM nudge prompt
         var nudgePrompt = await GetPromptAsync("nudge_system.md");
@@ -150,7 +162,18 @@ public class Worker(
     {
         try
         {
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Prompts", name);
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var path = Path.Combine(baseDir, "Prompts", name);
+            
+            // Search up to 3 levels up if not found (helps during development)
+            int levels = 0;
+            while (!File.Exists(path) && levels < 3 && baseDir != null)
+            {
+                baseDir = Path.GetDirectoryName(baseDir);
+                if (baseDir != null) path = Path.Combine(baseDir, "Prompts", name);
+                levels++;
+            }
+
             return File.Exists(path) ? await File.ReadAllTextAsync(path) : "You are a professional assistant.";
         }
         catch { return "You are a professional assistant."; }

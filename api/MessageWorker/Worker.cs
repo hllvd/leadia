@@ -167,12 +167,12 @@ public class Worker : BackgroundService
                 // If this was a broker message, schedule a delayed engagement check
                 if (normalized.SenderType == Domain.Enums.SenderType.Broker)
                 {
-                    _ = Task.Run(() => ScheduleEngagementCheckAsync(
+                    await ScheduleEngagementCheckAsync(
                         normalized.ConversationId,
                         normalized.BrokerId,
                         normalized.MessageHash,
                         scope.ServiceProvider.GetRequiredService<IRealStateRepository>(),
-                        stoppingToken), stoppingToken);
+                        stoppingToken);
                 }
 
                 await msg.AckAsync(cancellationToken: stoppingToken);
@@ -310,6 +310,12 @@ public class Worker : BackgroundService
             // Resolve broker + agency to get the configured timeout
             var brokerAssignment = await realStateRepo.GetAssignmentsByBrokerIdAsync(brokerId, ct);
             var agency           = brokerAssignment?.RealStateAgency;
+
+            if (!NudgeConfigResolver.IsEnabled(brokerAssignment, agency))
+            {
+                return;
+            }
+
             var delayMinutes     = NudgeConfigResolver.GetTimeoutMinutes(brokerAssignment, agency);
 
             var payload = JsonSerializer.Serialize(new

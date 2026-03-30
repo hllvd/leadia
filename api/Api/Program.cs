@@ -82,7 +82,6 @@ else
 // ── Repositories (shared) ──────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IBotRepository, BotRepository>();
-builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<IRealStateRepository, RealStateRepository>();
 
 // ── LLM Service ─────────────────────────────────────────────────────────────
@@ -91,7 +90,6 @@ builder.Services.AddHttpClient<ILlmService, LlmService>();
 // ── Application services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<BotService>();
-builder.Services.AddScoped<MessageService>();
 builder.Services.AddScoped<ConversationStateService>();
 builder.Services.AddScoped<RealStateService>();
 
@@ -156,7 +154,6 @@ app.MapUserEndpoints();
 app.MapBotEndpoints();
 app.MapWebhookEndpoints(config);
 app.MapRealStateEndpoints();
-app.MapTestEndpoints();
 app.MapChatEndpoints();
 
 app.Run();

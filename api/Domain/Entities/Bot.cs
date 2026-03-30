@@ -15,5 +15,4 @@ public class Bot
 
     // Navigation
     public ICollection<User> Users { get; set; } = [];
-    public ICollection<Message> Messages { get; set; } = [];
 }

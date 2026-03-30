@@ -78,6 +78,28 @@ services:
     networks:
       - contazap-net
 
+  # ── Engagement Worker ──────────────────────────────────
+  engagement-worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      args:
+        - PROJECT_NAME=EngagementWorker
+    container_name: engagement-worker
+    restart: unless-stopped
+    environment:
+      - NATS_URL=nats://nats:4222
+      - Database__ConnectionString=Data Source=/app/data/secondbrain.db
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - ./config.local.json:/app/config.local.json:ro
+      - sqlite-data:/app/data
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - contazap-net
+
   # ── NATS JetStream ────────────────────────────────────
   nats:
     image: nats:2.10-alpine

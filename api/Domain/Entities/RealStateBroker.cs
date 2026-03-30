@@ -10,6 +10,7 @@ public class RealStateBroker
     public ConversationMode Mode { get; set; } = ConversationMode.OnlyListening;
 
     // nullable — null = use agency default
+    public bool? NudgeEnabled { get; set; } = null;
     public int? NudgeTimeoutMinutes { get; set; } = null;
     public int? NudgeBrokerAfterMessages { get; set; } = null;
 

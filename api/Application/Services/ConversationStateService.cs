@@ -89,6 +89,15 @@ public class ConversationStateService(
         state.LastMessageActor      = msg.SenderType == Domain.Enums.SenderType.Broker ? "broker" : "customer";
         state.LastActivityTimestamp = DateTimeOffset.UtcNow.ToString("O");
 
+        if (msg.SenderType == Domain.Enums.SenderType.Broker)
+        {
+            state.ConsecutiveBrokerMessages++;
+        }
+        else
+        {
+            state.ConsecutiveBrokerMessages = 0;
+        }
+
         state.BufferJson  = JsonSerializer.Serialize(buffer);
         state.BufferChars = bufferChars;
 

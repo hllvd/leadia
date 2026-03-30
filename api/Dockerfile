@@ -9,6 +9,7 @@ ARG PROJECT_NAME=Api
 COPY ["Api/Api.csproj", "Api/"]
 COPY ["MessageWorker/MessageWorker.csproj", "MessageWorker/"]
 COPY ["PersistenceWorker/PersistenceWorker.csproj", "PersistenceWorker/"]
+COPY ["EngagementWorker/EngagementWorker.csproj", "EngagementWorker/"]
 COPY ["Application/Application.csproj", "Application/"]
 COPY ["Domain/Domain.csproj", "Domain/"]
 COPY ["Infrastructure/Infrastructure.csproj", "Infrastructure/"]

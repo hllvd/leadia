@@ -19,14 +19,40 @@ The architecture is optimized for:
 
 ---
 
-## Estratégia de Dados Híbrida e Visão de Futuro
+## Hybrid Data Strategy — Two-Store Principle
 
+The system uses **two databases** with strict ownership rules:
 
-## Hybrid Data Strategy and Vision for the Future
-The project was designed under a hybrid data strategy:
+### SQLite (EF Core) — Configuration & CRM Data Only
+> Structured relational data that requires referential integrity. Does NOT store conversation data.
 
-1.  **DynamoDB (Single Table Design)**: Currently utilized for high-volume memory and event processing (messages, facts, summaries). It is horizontally scalable and ideal for the continuous data flow of conversations.
-2.  **SQLite (Future Real Estate CRM)**: In a future expansion, the system will integrate a full real estate CRM. Structured relational data (property listings, owners, contracts, and administrative management) will be stored in **SQLite**, ensuring the referential integrity required for a CRM, while DynamoDB remains the "brain" for scalable conversations.
+| Table | Purpose |
+|---|---|
+| `Users` | Broker / admin identity and auth |
+| `Bots` | WhatsApp bot configuration |
+| `RealStateAgencies` | Agency-level settings (nudge config, etc.) |
+| `RealStateBrokers` | Per-broker settings, conversation mode |
+| `BrokersData` | Broker's property listings and CRM records |
+
+### DynamoDB (Single Table) — All Conversation & Memory Data
+> Horizontally scalable event store. The only place conversation data lives.
+
+Table name: `imobos` (prod) / `crm_memory` (test)
+
+| PK | SK | Data |
+|---|---|---|
+| `CONV#<id>` | `SUM#` | Rolling summary, buffer, hashes, actor, mode |
+| `CONV#<id>` | `FACT#<name>` | LLM-extracted facts |
+| `CONV#<id>` | `TASK#<type>` | Pending broker tasks (questions, visits, calls, nudges) |
+| `CONV#<id>` | `SIGNALS` | Latest LLM signals snapshot |
+| `CONV#<id>` | `BUFF#` | Buffered messages (flushed to S3 after 10 min) |
+
+### S3 — Long-Term Message Storage
+> Immutable message archives. Written by `PersistenceWorker` after buffer flush.
+
+> [!IMPORTANT]
+> **Never** store conversation state, facts, tasks, or signals in SQLite.
+> **Never** store user preferences, agency settings, or broker config in DynamoDB.
 
 ---
 
